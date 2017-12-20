@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<ruleset name="Tptools">
+    <rule ref="./vendor/mediawiki/mediawiki-codesniffer/MediaWiki">
+        <exclude name="MediaWiki.Commenting.FunctionComment.MissingDocumentationProtected" />
+        <exclude name="MediaWiki.Commenting.FunctionComment.MissingDocumentationPublic" />
+        <exclude name="MediaWiki.Commenting.FunctionComment.MissingParamComment" />
+        <exclude name="MediaWiki.Commenting.FunctionComment.MissingParamTag" />
+        <exclude name="MediaWiki.Commenting.FunctionComment.MissingReturn" />
+    </rule>
+    <file>src</file>
+    <arg name="extensions" value="php" />
+    <arg name="encoding" value="UTF-8" />
+</ruleset>
