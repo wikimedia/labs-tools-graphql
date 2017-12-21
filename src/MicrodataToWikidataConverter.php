@@ -3,6 +3,7 @@
 namespace Tptools;
 
 use DataValues\DataValue;
+use DataValues\StringValue;
 use DataValues\TimeValue;
 use linclark\MicrodataPHP\MicrodataPhp;
 use Serializers\Serializer;
@@ -47,6 +48,18 @@ class MicrodataToWikidataConverter {
 			];
 		}
 
+		// We normalize pagination
+		if (
+			array_key_exists( 'pageStart', $entity->properties ) &&
+			array_key_exists( 'pageEnd', $entity->properties )
+		) {
+			foreach ( $entity->properties['pageStart'] as $start ) {
+				foreach ( $entity->properties['pageEnd'] as $end ) {
+					$entity->properties['pagination'][] = trim( $start ) . '-' . trim( $end );
+				}
+			}
+		}
+
 		$revision = $this->wikidataRevisionGetter->getFromSiteAndTitle( 'frwikisource', $title );
 		if ( !$revision ) {
 			// print("$title has no item\n");
@@ -59,18 +72,27 @@ class MicrodataToWikidataConverter {
 
 		$fingerprint = $item->getFingerprint();
 		if ( array_key_exists( 'name', $entity->properties ) && !$fingerprint->hasLabel( 'fr' ) ) {
-			// TODO: safe?
 			$fingerprint->setLabel( 'fr', $entity->properties['name'][0] );
 		}
 		// TODO: type
+		$this->addItemRelation( $entity, $item, 'exampleOfWork', 'P629', 'Q386724' );
+		$this->addItemRelation( $entity, $item, 'translationOfWork', 'P629', 'Q386724' );
+		$this->addItemRelation( $entity, $item, 'isPartOf', 'P361' );
+		$this->addItemRelation( $entity, $item, 'hasPart', 'P527' );
 		$this->addItemRelation( $entity, $item, 'author', 'P50' );
-		$this->addItemRelation( $entity, $item, 'editor', 'P98' );
 		$this->addItemRelation( $entity, $item, 'translator', 'P655' );
 		$this->addItemRelation( $entity, $item, 'illustrator', 'P110' );
-		$this->addItemRelation( $entity, $item, 'publisher', 'P98', 'Q2085381' );
+		$this->addItemRelation( $entity, $item, 'editor', 'P98' );
+		$this->addItemRelation( $entity, $item, 'publisher', 'P123', 'Q2085381' );
 		$this->addYearRelation( $entity, $item, 'datePublished', 'P577' );
-		// TODO $this->addItemRelation(
-		// $entity, $item, 'http://purl.org/library/placeOfPublication', 'P291', 'Q2221906');
+		$this->addLanguageRelation( $entity, $item, 'inLanguage', 'P407' );
+		$this->addStringRelation( $entity, $item, 'volumeNumber', 'P478' );
+		$this->addStringRelation( $entity, $item, 'pagination', 'P304' );
+		$this->addItemRelation( $entity, $item, 'previousItem', 'P155' );
+		$this->addItemRelation( $entity, $item, 'nextItem', 'P156' );
+		$this->addItemRelation( $entity, $item,
+			'http://purl.org/library/placeOfPublication', 'P291', 'Q2221906'
+		);
 		// TODO: badges
 
 		return $this->itemSerializer->serialize( $item );
@@ -93,8 +115,11 @@ class MicrodataToWikidataConverter {
 				'properties' => [ 'name' => [ $entity ] ]
 			];
 		}
-		if ( array_key_exists( 'url', $entity->properties ) ) {
-			$title = str_replace( 'https://fr.wikisource.org/wiki/', '', $entity->properties['url'][0] );
+		if ( array_key_exists( 'mainEntityOfPage', $entity->properties ) ) {
+			$title = str_replace(
+				'https://fr.wikisource.org/wiki/', '',
+				$entity->properties['mainEntityOfPage'][0]
+			);
 			$revision = $this->wikidataRevisionGetter->getFromSiteAndTitle(
 				'frwikisource', urldecode( $title )
 			);
@@ -106,7 +131,8 @@ class MicrodataToWikidataConverter {
 			$itemIds = $this->sparqlClient->getItemIds(
 				'{ ?item rdfs:label ' . $name . '@fr } UNION 
 				{ ?item skos:altLabel ' . $name . '@fr } .
-				?item wdt:P31/wdt:P279* wd:' . $wdClass
+				?item wdt:P31/wdt:P279* wd:' . $wdClass,
+				2
 			);
 			if ( count( $itemIds ) === 1 ) {
 				return $itemIds[0];
@@ -152,6 +178,26 @@ class MicrodataToWikidataConverter {
 					$this->addStatement( $item, $date, $wdProperty );
 				}
 				// TODO: broader support?
+			}
+		}
+	}
+
+	private function addLanguageRelation( $entity, $item, $schemaRelation, $wdProperty ) {
+		if ( array_key_exists( $schemaRelation, $entity->properties ) ) {
+			foreach ( $entity->properties[$schemaRelation] as $languageCode ) {
+				$languageCode = json_encode( $languageCode );
+				$itemIds = $this->sparqlClient->getItemIds( '?item wdt:P305 ' . $languageCode, 2 );
+				if ( count( $itemIds ) === 1 ) {
+					$this->addStatement( $item, new EntityIdValue( $itemIds[0] ), $wdProperty );
+				}
+			}
+		}
+	}
+
+	private function addStringRelation( $entity, $item, $schemaRelation, $wdProperty ) {
+		if ( array_key_exists( $schemaRelation, $entity->properties ) ) {
+			foreach ( $entity->properties[$schemaRelation] as $string ) {
+				$this->addStatement( $item, new StringValue( trim( $string ) ), $wdProperty );
 			}
 		}
 	}

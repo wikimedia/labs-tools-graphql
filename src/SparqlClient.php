@@ -18,10 +18,11 @@ class SparqlClient {
 
 	/**
 	 * @param string $queryWhereClose
+	 * @param int $limit
 	 * @return ItemId[]
 	 */
-	public function getItemIds( $queryWhereClose ) {
-		$query = 'SELECT ?item WHERE { ' . $queryWhereClose  . ' }';
+	public function getItemIds( $queryWhereClose, $limit = 100 ) {
+		$query = 'SELECT ?item WHERE { ' . $queryWhereClose  . ' } LIMIT ' . $limit;
 		$sparqlResponse = $this->client->get(
 			'https://query.wikidata.org/sparql?format=json&query=' . urlencode( $query )
 		);
