@@ -8,6 +8,7 @@ use DataValues\TimeValue;
 use linclark\MicrodataPHP\MicrodataPhp;
 use Serializers\Serializer;
 use Wikibase\Api\Service\RevisionGetter;
+use Wikibase\DataModel\Entity\EntityIdParser;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
@@ -19,6 +20,17 @@ use Wikibase\DataModel\Snak\SnakList;
 use Wikibase\DataModel\Statement\Statement;
 
 class MicrodataToWikidataConverter {
+
+	private static $TYPE_MAPPING = [
+		'http://schema.org/Book' => 'Q3331189',
+		'http://schema.org/Thesis' => 'Q1266946',
+		'http://schema.org/PublicationVolume' => 'Q28869365',
+		'http://schema.org/Article' => 'Q191067',
+		'http://schema.org/Chapter' => 'Q1980247',
+		'http://schema.org/Collection' => 'Q3331189',
+		'http://schema.org/CreativeWork' => 'Q3331189'
+	];
+
 	/** @var RevisionGetter */
 	private $wikidataRevisionGetter;
 	/** @var ItemId */
@@ -27,19 +39,23 @@ class MicrodataToWikidataConverter {
 	private $itemSerializer;
 	/** @var SparqlClient */
 	private $sparqlClient;
+	/** @var EntityIdParser */
+	private $entityUriParser;
 
 	public function __construct() {
 		$wikidataUtils = new WikidataUtils();
 		$this->wikidataRevisionGetter = $wikidataUtils->getWikibaseFactory()->newRevisionGetter();
 		$this->wikiItem = new ItemId( 'Q15156541' );
-		$this->itemSerializer = $wikidataUtils->getSerializerFactory()->newItemSerializer();
+		$this->itemSerializer = $wikidataUtils->newSerializerFactory()->newItemSerializer();
 		$this->sparqlClient = new SparqlClient();
+		$this->entityUriParser = $wikidataUtils->newEntityUriParser();
 	}
 
 	public function toWikidata( $title ) {
-		$microdata = ( new MicrodataPhp(
-			'https://fr.wikisource.org/wiki/' . str_replace( ' ', '_', $title ) )
-		)->obj();
+		$microdata = ( new MicrodataPhp( [
+			'url' => 'https://fr.wikisource.org/wiki/' . str_replace( ' ', '_', $title )
+		] ) )->obj();
+
 		if ( count( $microdata->items ) ) {
 			$entity = $microdata->items[0];
 		} else {
@@ -74,7 +90,17 @@ class MicrodataToWikidataConverter {
 		if ( array_key_exists( 'name', $entity->properties ) && !$fingerprint->hasLabel( 'fr' ) ) {
 			$fingerprint->setLabel( 'fr', $entity->properties['name'][0] );
 		}
-		// TODO: type
+
+		if ( property_exists( $entity, 'type' ) ) {
+			foreach ( $entity->type as $type ) {
+				$type = trim( $type );
+				if ( array_key_exists( $type, self::$TYPE_MAPPING ) ) {
+					$typeId = new ItemId( self::$TYPE_MAPPING[$type] );
+					$this->addStatement( $item, new EntityIdValue( $typeId ), 'P31' );
+				}
+			}
+		}
+
 		$this->addItemRelation( $entity, $item, 'exampleOfWork', 'P629', 'Q386724' );
 		$this->addItemRelation( $entity, $item, 'translationOfWork', 'P629', 'Q386724' );
 		$this->addItemRelation( $entity, $item, 'isPartOf', 'P361' );
@@ -115,7 +141,9 @@ class MicrodataToWikidataConverter {
 				'properties' => [ 'name' => [ $entity ] ]
 			];
 		}
-		if ( array_key_exists( 'mainEntityOfPage', $entity->properties ) ) {
+		if ( property_exists( $entity, 'id' ) ) {
+			return $this->entityUriParser->parse( $entity->id );
+		} elseif ( array_key_exists( 'mainEntityOfPage', $entity->properties ) ) {
 			$title = str_replace(
 				'https://fr.wikisource.org/wiki/', '',
 				$entity->properties['mainEntityOfPage'][0]
@@ -128,10 +156,10 @@ class MicrodataToWikidataConverter {
 			}
 		} elseif ( $wdClass !== null && array_key_exists( 'name', $entity->properties ) ) {
 			$name = json_encode( $entity->properties['name'][0] );
-			$itemIds = $this->sparqlClient->getItemIds(
-				'{ ?item rdfs:label ' . $name . '@fr } UNION 
-				{ ?item skos:altLabel ' . $name . '@fr } .
-				?item wdt:P31/wdt:P279* wd:' . $wdClass,
+			$itemIds = $this->sparqlClient->getEntityIds(
+				'{ ?entity rdfs:label ' . $name . '@fr } UNION 
+				{ ?entity skos:altLabel ' . $name . '@fr } .
+				?entity wdt:P31/wdt:P279* wd:' . $wdClass,
 				2
 			);
 			if ( count( $itemIds ) === 1 ) {
@@ -186,7 +214,7 @@ class MicrodataToWikidataConverter {
 		if ( array_key_exists( $schemaRelation, $entity->properties ) ) {
 			foreach ( $entity->properties[$schemaRelation] as $languageCode ) {
 				$languageCode = json_encode( $languageCode );
-				$itemIds = $this->sparqlClient->getItemIds( '?item wdt:P305 ' . $languageCode, 2 );
+				$itemIds = $this->sparqlClient->getEntityIds( '?entity wdt:P305 ' . $languageCode, 2 );
 				if ( count( $itemIds ) === 1 ) {
 					$this->addStatement( $item, new EntityIdValue( $itemIds[0] ), $wdProperty );
 				}

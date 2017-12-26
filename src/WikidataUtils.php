@@ -18,34 +18,41 @@ use Wikibase\DataModel\DeserializerFactory;
 use Wikibase\DataModel\Entity\BasicEntityIdParser;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\SerializerFactory;
+use Wikibase\DataModel\Services\EntityId\SuffixEntityIdParser;
 
 class WikidataUtils {
+
+	const ENTITY_URI = 'http://www.wikidata.org/entity/';
+	private $mediawikiApi;
 	private $wikidataFactory;
 
 	public function getWikibaseFactory() {
-		if ( $this->wikidataFactory === null ) {
-			$this->wikidataFactory = new WikibaseFactory(
-				new MediawikiApi( 'https://www.wikidata.org/w/api.php' ),
-				$this->newDataValueDeserializer(),
-				$this->newDataValueSerializer()
-			);
-		}
-		return $this->wikidataFactory;
+		return $this->wikidataFactory ?: ( $this->wikidataFactory = new WikibaseFactory(
+			$this->getMediawikiApi(),
+			$this->newDataValueDeserializer(),
+			$this->newDataValueSerializer()
+		) );
 	}
 
-	public function getSerializerFactory() {
+	public function getMediawikiApi() {
+		return $this->mediawikiApi ?: ( $this->mediawikiApi =
+			new MediawikiApi( 'https://www.wikidata.org/w/api.php' )
+		);
+	}
+
+	public function newSerializerFactory() {
 		return new SerializerFactory( $this->newDataValueSerializer() );
 	}
 
-	public function getDeserializerFactory() {
-		return new DeserializerFactory( $this->newDataValueDeserializer(), new BasicEntityIdParser() );
+	public function newDeserializerFactory() {
+		return new DeserializerFactory( $this->newDataValueDeserializer(), $this->newEntityIdParser() );
 	}
 
-	private function newDataValueSerializer() {
+	public function newDataValueSerializer() {
 		return new DataValueSerializer();
 	}
 
-	private function newDataValueDeserializer() {
+	public function newDataValueDeserializer() {
 		return new DataValueDeserializer( [
 			NumberValue::getType() => NumberValue::class,
 			StringValue::getType() => StringValue::class,
@@ -57,5 +64,13 @@ class WikidataUtils {
 			TimeValue::getType() => TimeValue::class,
 			EntityIdValue::getType() => EntityIdValue::class
 		] );
+	}
+
+	public function newEntityIdParser() {
+		return new BasicEntityIdParser();
+	}
+
+	public function newEntityUriParser() {
+		return new SuffixEntityIdParser( self::ENTITY_URI, $this->newEntityIdParser() );
 	}
 }
