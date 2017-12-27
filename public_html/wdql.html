@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>GraphiQL</title>
+
+    <style>
+        body {
+            height: 100%;
+            margin: 0;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        #graphiql {
+            height: 100vh;
+        }
+    </style>
+
+    <script src="//tools-static.wmflabs.org/cdnjs/ajax/libs/es6-promise/4.0.5/es6-promise.auto.min.js"></script>
+    <script src="//tools-static.wmflabs.org/cdnjs/ajax/libs/fetch/0.9.0/fetch.min.js"></script>
+    <script src="//tools-static.wmflabs.org/cdnjs/ajax/libs/react/15.6.2/react.min.js"></script>
+    <script src="//tools-static.wmflabs.org/cdnjs/ajax/libs/react-dom/15.6.2/react-dom.min.js"></script>
+    <link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/graphiql/0.11.10/graphiql.min.css"/>
+    <script src="//tools-static.wmflabs.org/cdnjs/ajax/libs/graphiql/0.11.10/graphiql.js"></script>
+
+</head>
+<body>
+<div id="graphiql">Loading...</div>
+<script>
+    function graphQLFetcher(graphQLParams) {
+        return fetch('wdql.php', {
+            method: 'post',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(graphQLParams)
+        }).then(function (response) {
+            return response.text();
+        }).then(function (responseBody) {
+            try {
+                return JSON.parse(responseBody);
+            } catch (error) {
+                return responseBody;
+            }
+        });
+    }
+
+    ReactDOM.render(
+        React.createElement(GraphiQL, {
+            fetcher: graphQLFetcher
+        }),
+        document.getElementById('graphiql')
+    );
+</script>
+</body>
+</html>
