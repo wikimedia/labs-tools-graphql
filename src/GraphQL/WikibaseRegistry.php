@@ -7,6 +7,7 @@ use GraphQL\Type\Definition\Type;
 use GraphQL\Type\Schema;
 use GraphQL\Type\SchemaConfig;
 use GraphQL\Utils\Utils;
+use Psr\SimpleCache\CacheInterface;
 use Tptools\Api\WikibaseLanguageCodesGetter;
 use Tptools\Api\WikibaseSitesGetter;
 use Tptools\Api\WikidataPropertiesByDatatypeGetter;
@@ -23,6 +24,8 @@ use Wikibase\DataModel\Services\Lookup\PropertyDataTypeLookup;
 use Wikibase\DataModel\Services\Lookup\PropertyLookup;
 
 class WikibaseRegistry {
+
+	const CONFIGURATION_CACHE_TTL = 60 * 60 * 24;
 
 	private $wikibaseDataModelRegistry;
 	private $entityIdParser;
@@ -127,17 +130,20 @@ class WikibaseRegistry {
 		}
 	}
 
-	public static function newForWikidata() {
+	public static function newForWikidata( CacheInterface $cache ) {
 		$wikidataUtils = new WikidataUtils();
 		$wikibaseFactory = $wikidataUtils->getWikibaseFactory();
-		$languageCodesGetter = new WikibaseLanguageCodesGetter( $wikidataUtils->getMediawikiApi() );
-		$sitesGetter = new WikibaseSitesGetter( $wikidataUtils->getMediawikiApi() );
-		$propertiesByDatatypeGetter = new WikidataPropertiesByDatatypeGetter( new SparqlClient() );
-		// TODO: cache
+
 		return new self(
-			$languageCodesGetter->get(),
-			$sitesGetter->get(),
-			$propertiesByDatatypeGetter->get(),
+			self::getOrSet( $cache, 'wd.languageCodes', function () use ( $wikidataUtils ) {
+				return ( new WikibaseLanguageCodesGetter( $wikidataUtils->getMediawikiApi() ) )->get();
+			}, self::CONFIGURATION_CACHE_TTL ),
+			self::getOrSet( $cache, 'wd.sites', function () use ( $wikidataUtils ) {
+				return ( new WikibaseSitesGetter( $wikidataUtils->getMediawikiApi() ) )->get();
+			}, self::CONFIGURATION_CACHE_TTL ),
+			self::getOrSet( $cache, 'wd.propertiesByDatatype', function () {
+				return ( new WikidataPropertiesByDatatypeGetter( new SparqlClient() ) )->get();
+			}, self::CONFIGURATION_CACHE_TTL ),
 			$wikidataUtils->newEntityIdParser(),
 			$wikidataUtils->newEntityUriParser(),
 			$wikibaseFactory->newEntityLookup(),
@@ -145,5 +151,14 @@ class WikibaseRegistry {
 			$wikibaseFactory->newPropertyLookup(),
 			new EntityRetrievingDataTypeLookup( $wikibaseFactory->newEntityLookup() )
 		);
+	}
+
+	private static function getOrSet( CacheInterface $cache, $key, callable $default, $ttl ) {
+		$value = $cache->get( $key );
+		if ( $value === null ) {
+			$value = $default();
+			$cache->set( $key, $value, $ttl );
+		}
+		return $value;
 	}
 }

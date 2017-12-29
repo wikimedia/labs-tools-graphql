@@ -13,7 +13,7 @@ class WikidataPropertiesByDatatypeGetter {
 	}
 
 	/**
-	 * @return string[]
+	 * @return string[][]
 	 */
 	public function get() {
 		$tuples = $this->client->getTuples(
