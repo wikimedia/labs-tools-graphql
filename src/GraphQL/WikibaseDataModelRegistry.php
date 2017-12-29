@@ -9,6 +9,7 @@ use DataValues\QuantityValue;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use DataValues\UnboundedQuantityValue;
+use DataValues\UnknownValue;
 use GraphQL\Error\InvariantViolation;
 use GraphQL\Type\Definition\EnumType;
 use GraphQL\Type\Definition\InterfaceType;
@@ -74,8 +75,9 @@ class WikibaseDataModelRegistry {
 	private $monolingualTextValue;
 	private $globeCoordinateValue;
 	private $quantityValue;
-	private $time;
+	private $timeValue;
 	private $timePrecision;
+	private $unknownValue;
 
 	/** .
 		* @param string[] $availableLanguageCodes
@@ -177,6 +179,8 @@ class WikibaseDataModelRegistry {
 				return $this->quantityValue();
 			case TimeValue::getType():
 				return $this->timeValue();
+			case UnknownValue::getType():
+				return $this->unknownValue();
 			default:
 				throw new ApiException( 'Unsupported value type: ' . Utils::printSafeJson( $type ) );
 		}
@@ -762,7 +766,7 @@ class WikibaseDataModelRegistry {
 	}
 
 	public function timeValue() {
-		return $this->time ?: ( $this->time = new ObjectType( [
+		return $this->timeValue ?: ( $this->timeValue = new ObjectType( [
 			'name' => 'TimeValue',
 			'interfaces' => [ $this->value() ],
 			'fields' => $this->value()->getFields() + [
@@ -858,6 +862,14 @@ class WikibaseDataModelRegistry {
 					'value' => TimeValue::PRECISION_SECOND
 				]
 			]
+		] ) );
+	}
+
+	public function unknownValue() {
+		return $this->unknownValue ?: ( $this->unknownValue = new ObjectType( [
+			'name' => 'UnknownValue',
+			'interfaces' => [ $this->value() ],
+			'fields' => $this->value()->getFields()
 		] ) );
 	}
 

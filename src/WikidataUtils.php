@@ -3,8 +3,8 @@
 namespace Tptools;
 
 use DataValues\Deserializers\DataValueDeserializer;
+use DataValues\Geo\Values\GlobeCoordinateValue;
 use DataValues\Geo\Values\LatLongValue;
-use DataValues\GlobeCoordinateValue;
 use DataValues\MonolingualTextValue;
 use DataValues\MultilingualTextValue;
 use DataValues\NumberValue;
@@ -12,6 +12,7 @@ use DataValues\QuantityValue;
 use DataValues\Serializers\DataValueSerializer;
 use DataValues\StringValue;
 use DataValues\TimeValue;
+use DataValues\UnknownValue;
 use Mediawiki\Api\MediawikiApi;
 use Wikibase\Api\WikibaseFactory;
 use Wikibase\DataModel\DeserializerFactory;
@@ -62,7 +63,8 @@ class WikidataUtils {
 			MultilingualTextValue::getType() => MultilingualTextValue::class,
 			QuantityValue::getType() => QuantityValue::class,
 			TimeValue::getType() => TimeValue::class,
-			EntityIdValue::getType() => EntityIdValue::class
+			EntityIdValue::getType() => EntityIdValue::class,
+			UnknownValue::getType() => UnknownValue::class
 		] );
 	}
 

@@ -57,7 +57,8 @@ class WikibaseRegistry {
 				$this->wikibaseDataModelRegistry->monolingualTextValue(),
 				$this->wikibaseDataModelRegistry->globeCoordinateValue(),
 				$this->wikibaseDataModelRegistry->quantityValue(),
-				$this->wikibaseDataModelRegistry->timeValue()
+				$this->wikibaseDataModelRegistry->timeValue(),
+				$this->wikibaseDataModelRegistry->unknownValue()
 			] );
 		return new Schema( $config );
 	}
