@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Tools related to Wikimedia projects by User:Tpt">
+    <meta name="author" content="Tpt">
+
+    <title>Tptools</title>
+
+    <link href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0-beta.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            padding-top: 1.5rem;
+            padding-bottom: 1.5rem;
+        }
+
+        .header,
+        .content,
+        .footer {
+            padding-right: 1rem;
+            padding-left: 1rem;
+        }
+
+        .header {
+            padding-bottom: 1rem;
+            border-bottom: .05rem solid #e5e5e5;
+        }
+
+        .footer {
+            padding-top: 1.5rem;
+            color: #777;
+            border-top: .05rem solid #e5e5e5;
+        }
+
+        @media (min-width: 48em) {
+            .container {
+                max-width: 46rem;
+            }
+        }
+
+        .jumbotron {
+            text-align: center;
+            border-bottom: .05rem solid #e5e5e5;
+        }
+
+        .content {
+            margin: 3rem 0;
+        }
+        .content p + h4 {
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <header class="header clearfix">
+        <nav>
+            <ul class="nav nav-pills float-right">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#">Home <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="wdql.html">GraphiQL</a>
+                </li>
+            </ul>
+        </nav>
+        <h3 class="text-muted">Tptools</h3>
+    </header>
+
+    <main role="main">
+        <div class="jumbotron">
+            <h1 class="display-3">Tptools</h1>
+            <p class="lead">Some tools by <a href="https://meta.wikimedia.org/wiki/User:Tpt">User:Tpt</a></p>
+        </div>
+
+        <div class="row content">
+            <div class="col-lg-6">
+                <h4><a href="wdql.html">Wikidata GraphQL</a></h4>
+                <p>
+                    <a href="http://graphql.org">GraphQL</a> API allowing to interact with the Wikidata content.
+                    The API endpoint URI is <code>https://tools.wmflabs.org/tptools/wdql.php</code>
+                </p>
+            </div>
+
+            <div class="col-lg-6">
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="footer">
+        <p>
+            Code licensed <a href="https://phabricator.wikimedia.org/source/tool-tptools/browse/master/LICENSE">GPLv2+</a>
+            <a href="https://tools.wmflabs.org/admin/">
+                <img src="https://tools-static.wmflabs.org/toolforge/banners/Powered-by-Toolforge.png" alt="Powered by Toolforge">
+            </a>
+        </p>
+    </footer>
+
+</div>
+</body>
+</html>
