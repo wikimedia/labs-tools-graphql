@@ -25,7 +25,8 @@ use Wikibase\DataModel\Services\Lookup\PropertyLookup;
 
 class WikibaseRegistry {
 
-	const CONFIGURATION_CACHE_TTL = 60 * 60 * 24;
+	// 1 day
+	const CONFIGURATION_CACHE_TTL = 86400;
 
 	private $wikibaseDataModelRegistry;
 	private $entityIdParser;

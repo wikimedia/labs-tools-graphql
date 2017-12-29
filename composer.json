@@ -7,6 +7,7 @@
     }
   },
   "require": {
+    "php": ">=5.5.9",
     "addwiki/mediawiki-api": "~0.6",
     "addwiki/wikibase-api": "~0.7",
     "data-values/data-values": "~1.0",
