@@ -13,7 +13,7 @@ $cache = new ArrayCache();
 if ( extension_loaded( 'redis' ) ) {
 	$cache = new ChainCache( [
 		$cache,
-		RedisCache::createConnection( 'redis://tools-redis:6379' )
+		new RedisCache( RedisCache::createConnection( 'redis://tools-redis:6379' ), 'wdql' )
 	] );
 }
 
