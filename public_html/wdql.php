@@ -7,6 +7,8 @@ use Symfony\Component\Cache\Simple\ChainCache;
 use Symfony\Component\Cache\Simple\RedisCache;
 use Tptools\GraphQL\WikibaseRegistry;
 
+ini_set( 'xdebug.max_nesting_level', 200 ); //TODO: bad but useful for deeply nested fields
+
 include __DIR__ . '/../vendor/autoload.php';
 
 $cache = new ArrayCache();
