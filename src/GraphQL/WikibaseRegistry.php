@@ -13,6 +13,7 @@ use Tptools\Api\WikibaseSitesGetter;
 use Tptools\Api\WikidataPropertiesByDatatypeGetter;
 use Tptools\SparqlClient;
 use Tptools\WikidataUtils;
+use Wikibase\Api\Service\LabelSetter;
 use Wikibase\DataModel\Entity\EntityIdParser;
 use Wikibase\DataModel\Entity\EntityIdParsingException;
 use Wikibase\DataModel\Entity\ItemId;
@@ -22,6 +23,7 @@ use Wikibase\DataModel\Services\Lookup\EntityRetrievingDataTypeLookup;
 use Wikibase\DataModel\Services\Lookup\ItemLookup;
 use Wikibase\DataModel\Services\Lookup\PropertyDataTypeLookup;
 use Wikibase\DataModel\Services\Lookup\PropertyLookup;
+use Wikibase\DataModel\Term\Term;
 
 class WikibaseRegistry {
 
@@ -33,12 +35,14 @@ class WikibaseRegistry {
 	private $entityLookup;
 	private $itemLookup;
 	private $propertyLookup;
+	private $labelSetter;
 
 	public function __construct(
 		array $availableLanguageCodes, array $availableSites, array $propertiesByDatatype,
 		EntityIdParser $entityIdParser, EntityIdParser $entityUriParser, EntityLookup $entityLookup,
 		ItemLookup $itemLookup, PropertyLookup $propertyLookup,
-		PropertyDataTypeLookup $propertyDataTypeLookup
+		PropertyDataTypeLookup $propertyDataTypeLookup,
+		LabelSetter $labelSetter
 	) {
 		$this->wikibaseDataModelRegistry = new WikibaseDataModelRegistry(
 			$availableLanguageCodes, $availableSites, $propertiesByDatatype,
@@ -48,11 +52,13 @@ class WikibaseRegistry {
 		$this->entityLookup = $entityLookup;
 		$this->itemLookup = $itemLookup;
 		$this->propertyLookup = $propertyLookup;
+		$this->labelSetter = $labelSetter;
 	}
 
 	public function schema() {
 		$config = SchemaConfig::create()
 			->setQuery( $this->query() )
+			->setMutation( $this->mutation() )
 			->setTypes( [
 				$this->wikibaseDataModelRegistry->propertyValueSnak(),
 				$this->wikibaseDataModelRegistry->propertySomeValueSnak(),
@@ -123,6 +129,32 @@ class WikibaseRegistry {
 		] );
 	}
 
+	private function mutation() {
+		return new ObjectType( [
+			'name' => 'Mutation',
+			'fields' => [
+				'setLabel' => [
+					'type' => Type::nonNull( Type::boolean() ),
+					'args' => [
+						'id' => [
+							'type' => Type::nonNull( Type::id() )
+						],
+						'language' => [
+							'type' => Type::nonNull( Type::string() )
+						],
+						'value' => [
+							'type' => Type::nonNull( Type::string() )
+						]
+					],
+					'resolve' => function ( $value, $args ) {
+						$entityId = $this->parseEntityId( $args['id'] );
+						return $this->labelSetter->set( new Term( $args['language'], $args['value'] ), $entityId );
+					}
+				]
+			]
+		] );
+	}
+
 	private function parseEntityId( $serialization ) {
 		try {
 		   return $this->entityIdParser->parse( $serialization );
@@ -150,7 +182,8 @@ class WikibaseRegistry {
 			$wikibaseFactory->newEntityLookup(),
 			$wikibaseFactory->newItemLookup(),
 			$wikibaseFactory->newPropertyLookup(),
-			new EntityRetrievingDataTypeLookup( $wikibaseFactory->newEntityLookup() )
+			new EntityRetrievingDataTypeLookup( $wikibaseFactory->newEntityLookup() ),
+			$wikibaseFactory->newLabelSetter()
 		);
 	}
 
