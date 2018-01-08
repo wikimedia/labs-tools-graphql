@@ -17,6 +17,7 @@
     "data-values/time": "~0.8",
     "linclark/microdata-php": "~2.0",
     "webonyx/graphql-php": "~0.11.5",
+    "ivome/graphql-relay-php": "~0.4.1",
     "symfony/cache": "~3.4"
   },
   "require-dev": {

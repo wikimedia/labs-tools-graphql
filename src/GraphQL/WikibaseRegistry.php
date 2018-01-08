@@ -15,7 +15,6 @@ use Tptools\SparqlClient;
 use Tptools\WikidataUtils;
 use Wikibase\Api\Service\LabelSetter;
 use Wikibase\DataModel\Entity\EntityIdParser;
-use Wikibase\DataModel\Entity\EntityIdParsingException;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Services\Lookup\EntityLookup;
@@ -77,6 +76,7 @@ class WikibaseRegistry {
 		return new ObjectType( [
 			'name' => 'Query',
 			'fields' => [
+				'node' => $this->wikibaseDataModelRegistry->nodeField(),
 				'entity' => [
 					'type' => $this->wikibaseDataModelRegistry->entity(),
 					'args' => [
@@ -85,7 +85,7 @@ class WikibaseRegistry {
 						]
 					],
 					'resolve' => function ( $value, $args ) {
-						$entityId = $this->parseEntityId( $args['id'] );
+						$entityId = $this->wikibaseDataModelRegistry->parseEntityId( $args['id'] );
 						return $this->entityLookup->getEntity( $entityId );
 					}
 				],
@@ -97,7 +97,7 @@ class WikibaseRegistry {
 						]
 					],
 					'resolve' => function ( $value, $args ) {
-						$entityId = $this->parseEntityId( $args['id'] );
+						$entityId = $this->wikibaseDataModelRegistry->parseEntityId( $args['id'] );
 						if ( $entityId instanceof ItemId ) {
 							return $this->itemLookup->getItemForId( $entityId );
 						} else {
@@ -115,7 +115,7 @@ class WikibaseRegistry {
 						]
 					],
 					'resolve' => function ( $value, $args ) {
-						$entityId = $this->parseEntityId( $args['id'] );
+						$entityId = $this->wikibaseDataModelRegistry->parseEntityId( $args['id'] );
 						if ( $entityId instanceof PropertyId ) {
 							return $this->propertyLookup->getPropertyForId( $entityId );
 						} else {
@@ -147,20 +147,12 @@ class WikibaseRegistry {
 						]
 					],
 					'resolve' => function ( $value, $args ) {
-						$entityId = $this->parseEntityId( $args['id'] );
+						$entityId = $this->wikibaseDataModelRegistry->parseEntityId( $args['id'] );
 						return $this->labelSetter->set( new Term( $args['language'], $args['value'] ), $entityId );
 					}
 				]
 			]
 		] );
-	}
-
-	private function parseEntityId( $serialization ) {
-		try {
-		   return $this->entityIdParser->parse( $serialization );
-		} catch ( EntityIdParsingException $e ) {
-			throw new ApiException( $e->getMessage(), $e->getCode(), $e );
-		}
 	}
 
 	public static function newForWikidata( CacheInterface $cache ) {

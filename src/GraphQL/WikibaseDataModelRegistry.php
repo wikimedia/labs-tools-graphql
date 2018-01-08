@@ -16,10 +16,12 @@ use GraphQL\Type\Definition\InterfaceType;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\Type;
 use GraphQL\Utils\Utils;
+use GraphQLRelay\Relay;
 use OutOfBoundsException;
 use Wikibase\DataModel\Entity\EntityDocument;
 use Wikibase\DataModel\Entity\EntityId;
 use Wikibase\DataModel\Entity\EntityIdParser;
+use Wikibase\DataModel\Entity\EntityIdParsingException;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
@@ -50,6 +52,7 @@ class WikibaseDataModelRegistry {
 	private $propertyDataTypeLookup;
 	private $entityIdParser;
 	private $entityUriParser;
+	private $nodeDefinition;
 
 	private $value;
 	private $valueType;
@@ -96,6 +99,24 @@ class WikibaseDataModelRegistry {
 		$this->propertyDataTypeLookup = $propertyDataTypeLookup;
 		$this->entityIdParser = $entityIdParser;
 		$this->entityUriParser = $entityUriParser;
+
+		$this->nodeDefinition = Relay::nodeDefinitions(
+			function ( $id ) {
+				$entityId = $this->parseEntityId( $id );
+				return $this->entityLookup->getEntity( $entityId );
+			},
+			function ( EntityDocument $object ) {
+				return $this->entityObjectForType( $object->getType() );
+			}
+		);
+	}
+
+	public function nodeField() {
+		return $this->nodeDefinition['nodeField'];
+	}
+
+	public function node() {
+		return $this->nodeDefinition['nodeInterface'];
 	}
 
 	public function value() {
@@ -216,10 +237,18 @@ class WikibaseDataModelRegistry {
 		}
 	}
 
+	public function parseEntityId( $serialization ) {
+		try {
+			return $this->entityIdParser->parse( $serialization );
+		} catch ( EntityIdParsingException $e ) {
+			throw new ApiException( $e->getMessage(), $e->getCode(), $e );
+		}
+	}
+
 	public function item() {
 		return $this->item ?: ( $this->item = new ObjectType( [
 			'name' => 'Item',
-			'interfaces' => [ $this->value(), $this->entity() ],
+			'interfaces' => [ $this->node(), $this->value(), $this->entity() ],
 			'fields' =>
 				$this->value()->getFields() +
 				$this->entity()->getFields() +
@@ -238,7 +267,7 @@ class WikibaseDataModelRegistry {
 	public function property() {
 		return $this->property ?: ( $this->property = new ObjectType( [
 			'name' => 'Property',
-			'interfaces' => [ $this->value(), $this->entity() ],
+			'interfaces' => [ $this->node(), $this->value(), $this->entity() ],
 			'fields' =>
 				$this->value()->getFields() +
 				$this->entity()->getFields() +
