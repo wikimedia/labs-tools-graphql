@@ -185,7 +185,7 @@ class MicrodataToWikidataConverter {
 	private function buildImportedFromReferences( ItemId $itemId ) {
 		$snaks = new SnakList();
 		$snaks->addSnak( new PropertyValueSnak(
-			new PropertyId( 'p143' ),
+			new PropertyId( 'P143' ),
 			new EntityIdValue( $itemId )
 		) );
 		$references = new ReferenceList();
