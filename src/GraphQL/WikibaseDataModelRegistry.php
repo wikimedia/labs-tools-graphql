@@ -33,7 +33,6 @@ use Wikibase\DataModel\Services\Statement\Filter\PropertySetStatementFilter;
 use Wikibase\DataModel\SiteLink;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\DataModel\Snak\Snak;
-use Wikibase\DataModel\Snak\SnakList;
 use Wikibase\DataModel\Statement\Statement;
 use Wikibase\DataModel\Statement\StatementList;
 use Wikibase\DataModel\Statement\StatementListProvider;
@@ -60,7 +59,6 @@ class WikibaseDataModelRegistry {
 	private $statement;
 	private $rank;
 	private $reference;
-	private $snakList;
 	private $snak;
 	private $snakType;
 	private $propertyValueSnak;
@@ -585,9 +583,26 @@ class WikibaseDataModelRegistry {
 						}
 					],
 					'qualifiers' => [
-						'type' => Type::nonNull( $this->snakList() ),
-						'resolve' => function ( Statement $value ) {
-							return $value->getQualifiers();
+						'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->snak() ) ) ),
+						'args' => [
+							'propertyIds' => [
+								'type' => Type::listOf( Type::nonNull( Type::id() ) ),
+								'description' => 'List of the property ids in order to filter the snaks returned. ' .
+									'If null all snaks are returned.'
+							]
+						],
+						'resolve' => function ( Statement $value, $args ) {
+							$propertyIds = $this->getArgSafe( $args, 'propertyIds' );
+							if ( $propertyIds === null ) {
+								return $value->getQualifiers();
+							} else {
+								return array_filter(
+									iterator_to_array( $value->getQualifiers() ),
+									function ( Snak $snak ) use ( $propertyIds ) {
+										return in_array( $snak->getPropertyId()->getSerialization(), $propertyIds );
+									}
+								);
+							}
 						}
 					],
 					'references' => [
@@ -631,30 +646,29 @@ class WikibaseDataModelRegistry {
 					}
 				],
 				'snaks' => [
-					'type' => Type::nonNull( $this->snakList() ),
-					'resolve' => function ( Reference $value ) {
-						return $value->getSnaks();
+					'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->snak() ) ) ),
+					'args' => [
+						'propertyIds' => [
+							'type' => Type::listOf( Type::nonNull( Type::id() ) ),
+							'description' => 'List of the property ids in order to filter the snaks returned. ' .
+								'If null all snaks are returned.'
+						]
+					],
+					'resolve' => function ( Reference $value, $args ) {
+						$propertyIds = $this->getArgSafe( $args, 'propertyIds' );
+						if ( $propertyIds === null ) {
+							return $value->getSnaks();
+						} else {
+							return array_filter(
+								iterator_to_array( $value->getSnaks() ),
+								function ( Snak $snak ) use ( $propertyIds ) {
+									return in_array( $snak->getPropertyId()->getSerialization(), $propertyIds );
+								}
+							);
+						}
 					}
 				]
 			]
-		] ) );
-	}
-
-	public function snakList() {
-		return $this->snakList ?: ( $this->snakList = new ObjectType( [
-			'name' => 'SnakList',
-			'fields' => function () {
-				return $this->buildFieldsForAllProperties( function ( PropertyId $propertyId ) {
-					return [
-						'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->snak() ) ) ),
-						'resolve' => function ( SnakList $value ) use ( $propertyId ) {
-							return array_filter( $value->getArrayCopy(), function ( Snak $snak ) use ( $propertyId ) {
-								return $snak->getPropertyId()->equals( $propertyId );
-							} );
-						}
-					];
-				} );
-			}
 		] ) );
 	}
 
