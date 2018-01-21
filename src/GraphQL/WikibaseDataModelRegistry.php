@@ -10,7 +10,6 @@ use DataValues\StringValue;
 use DataValues\TimeValue;
 use DataValues\UnboundedQuantityValue;
 use DataValues\UnknownValue;
-use GraphQL\Error\InvariantViolation;
 use GraphQL\Type\Definition\EnumType;
 use GraphQL\Type\Definition\InterfaceType;
 use GraphQL\Type\Definition\ObjectType;
@@ -30,6 +29,7 @@ use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Reference;
 use Wikibase\DataModel\Services\Lookup\EntityLookup;
 use Wikibase\DataModel\Services\Lookup\PropertyDataTypeLookup;
+use Wikibase\DataModel\Services\Statement\Filter\PropertySetStatementFilter;
 use Wikibase\DataModel\SiteLink;
 use Wikibase\DataModel\SiteLinkList;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
@@ -38,10 +38,8 @@ use Wikibase\DataModel\Snak\SnakList;
 use Wikibase\DataModel\Statement\Statement;
 use Wikibase\DataModel\Statement\StatementList;
 use Wikibase\DataModel\Statement\StatementListProvider;
-use Wikibase\DataModel\Term\AliasGroupList;
 use Wikibase\DataModel\Term\FingerprintProvider;
 use Wikibase\DataModel\Term\Term;
-use Wikibase\DataModel\Term\TermList;
 
 class WikibaseDataModelRegistry {
 
@@ -59,9 +57,7 @@ class WikibaseDataModelRegistry {
 	private $entity;
 	private $item;
 	private $property;
-	private $termList;
 	private $term;
-	private $aliasGroupList;
 	private $siteLinkList;
 	private $siteLink;
 	private $statementList;
@@ -285,48 +281,117 @@ class WikibaseDataModelRegistry {
 
 	private function fingerprintProviderFields() {
 		return [
+			'label' => [
+				'type' => $this->term(),
+				'description' => 'label of the entity',
+				'args' => [
+					'language' => [
+						'type' => Type::nonNull( Type::string() )
+					]
+				],
+				'resolve' => function ( FingerprintProvider $value, $args ) {
+					try {
+						return $value->getFingerprint()->getLabel( $args['language'] );
+					} catch ( OutOfBoundsException $e ) {
+						return null;
+					}
+				}
+			],
 			'labels' => [
-				'type' => Type::nonNull( $this->termList() ),
+				'type' => Type::nonNull( Type::listOf( $this->term() ) ),
 				'description' => 'labels of the entity (unique per language)',
-				'resolve' => function ( FingerprintProvider $value ) {
-					return $value->getFingerprint()->getLabels();
+				'args' => [
+					'language' => [
+						'type' => Type::listOf( Type::nonNull( Type::string() ) ),
+						'description' => 'List of languages to returns the labels in. ' .
+							'If null all labels are going to be returned. ' .
+							'If not null the result array has the same size as the input array ' .
+							'and the labels are in the same position as their language code in the input array.'
+					]
+				],
+				'resolve' => function ( FingerprintProvider $value, $args ) {
+					$languages = $this->getArgSafe( $args, 'language' );
+					if ( $languages === null ) {
+						return $value->getFingerprint()->getLabels();
+					}
+					return array_map( function ( $languageCode ) use ( $value ) {
+						try {
+							return $value->getFingerprint()->getLabel( $languageCode );
+						} catch ( OutOfBoundsException $e ) {
+							return null;
+						}
+					}, $languages );
+				}
+			],
+			'description' => [
+				'type' => $this->term(),
+				'description' => 'description of the entity',
+				'args' => [
+					'language' => [
+						'type' => Type::nonNull( Type::string() )
+					]
+				],
+				'resolve' => function ( FingerprintProvider $value, $args ) {
+					try {
+						return $value->getFingerprint()->getDescription( $args['language'] );
+					} catch ( OutOfBoundsException $e ) {
+						return null;
+					}
 				}
 			],
 			'descriptions' => [
-				'type' => Type::nonNull( $this->termList() ),
+				'type' => Type::nonNull( Type::listOf( $this->term() ) ),
 				'description' => 'descriptions of the entity (unique per language)',
-				'resolve' => function ( FingerprintProvider $value ) {
-					return $value->getFingerprint()->getDescriptions();
+				'args' => [
+					'language' => [
+						'type' => Type::listOf( Type::nonNull( Type::string() ) ),
+						'description' => 'List of languages to returns the descriptions in. ' .
+							'If null all descriptions are going to be returned. ' .
+							'If not null the result array has the same size as the input array ' .
+							'and the descriptions are in the same position as their language code in the input array.'
+					]
+				],
+				'resolve' => function ( FingerprintProvider $value, $args ) {
+					$languages = $this->getArgSafe( $args, 'language' );
+					if ( $languages === null ) {
+						return $value->getFingerprint()->getDescriptions();
+					}
+					return array_map( function ( $languageCode ) use ( $value ) {
+						try {
+							return $value->getFingerprint()->getDescription( $languageCode );
+						} catch ( OutOfBoundsException $e ) {
+							return null;
+						}
+					}, $languages );
 				}
 			],
 			'aliases' => [
-				'type' => Type::nonNull( $this->aliasGroupList() ),
-				'description' => 'aliases of the entity)',
-				'resolve' => function ( FingerprintProvider $value ) {
-					return $value->getFingerprint()->getAliasGroups();
+				'type' => Type::nonNull( Type::listOf( $this->term() ) ),
+				'description' => 'aliases of the entity (unique per language)',
+				'args' => [
+					'language' => [
+						'type' => Type::listOf( Type::nonNull( Type::string() ) ),
+						'description' => 'List of languages to returns the aliases in. ' .
+							'If null all aliases are going to be returned.'
+					]
+				],
+				'resolve' => function ( FingerprintProvider $value, $args ) {
+					$languages = $this->getArgSafe( $args, 'language' );
+					$results = [];
+					$aliasGroups = $value->getFingerprint()->getAliasGroups();
+					if ( $languages !== null ) {
+						$aliasGroups = $aliasGroups->getWithLanguages( $languages );
+					}
+					$results = [];
+						foreach ( $aliasGroups as $aliasGroup ) {
+							foreach ( $aliasGroup->getAliases() as $alias ) {
+								$results[] = new Term( $aliasGroup->getLanguageCode(), $alias );
+							}
+						}
+					return $results;
 				}
 			],
 		];
-	}
-
-	public function termList() {
-		return $this->termList ?: ( $this->termList = new ObjectType( [
-			'name' => 'TermList',
-			'fields' => function () {
-				return $this->buildFieldsForAllLanguages( function ( $languageCode ) {
-					return [
-						'type' => $this->term(),
-						'resolve' => function ( TermList $value ) use ( $languageCode ) {
-							try {
-								return $value->getByLanguage( $languageCode );
-							} catch ( OutOfBoundsException $e ) {
-								return null;
-							}
-						}
-					];
-				} );
-			}
-		] ) );
 	}
 
 	private function buildFieldsForAllLanguages( callable $fieldBuilder ) {
@@ -344,48 +409,18 @@ class WikibaseDataModelRegistry {
 				'language' => [
 					'type' => Type::nonNull( Type::string() ),
 					'description' => 'language code of the text',
-					'resolve' => function ( $value ) {
-						if ( $value instanceof Term ) {
-							return $value->getLanguageCode();
-						} else {
-							throw new InvariantViolation( 'Term.language should get a Term' );
-						}
+					'resolve' => function ( Term $value ) {
+						return $value->getLanguageCode();
 					}
 				],
 				'value' => [
 					'type' => Type::nonNull( Type::string() ),
 					'description' => 'text',
-					'resolve' => function ( $value ) {
-						if ( $value instanceof Term ) {
-							return $value->getText();
-						} else {
-							throw new InvariantViolation( 'Term.text should get a Term' );
-						}
+					'resolve' => function ( Term $value ) {
+						return $value->getText();
 					}
 				]
 			]
-		] ) );
-	}
-
-	public function aliasGroupList() {
-		return $this->aliasGroupList ?: ( $this->aliasGroupList = new ObjectType( [
-			'name' => 'AliasGroupList',
-			'fields' => function () {
-				return $this->buildFieldsForAllLanguages( function ( $languageCode ) {
-					return [
-						'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->term() ) ) ),
-						'resolve' => function ( AliasGroupList $value ) use ( $languageCode ) {
-							try {
-								return array_map( function ( $alias ) use ( $languageCode ) {
-									return new Term( $languageCode, $alias );
-								}, $value->getByLanguage( $languageCode )->getAliases() );
-							} catch ( OutOfBoundsException $e ) {
-								return [];
-							}
-						}
-					];
-				} );
-			}
 		] ) );
 	}
 
@@ -452,12 +487,54 @@ class WikibaseDataModelRegistry {
 		return [
 			'claims' => [
 				'type' => Type::nonNull( $this->statementList() ),
-				'description' => 'labels of the entity (unique per language)',
+				'description' => 'statements of the entity',
 				'resolve' => function ( StatementListProvider $value ) {
 					return $value->getStatements();
 				}
+			],
+			'statements' => [
+				'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->statement() ) ) ),
+				'description' => 'statements of the entity',
+				'args' => [
+					'propertyIds' => [
+						'type' => Type::listOf( Type::nonNull( Type::id() ) ),
+						'description' => 'List of the property ids in order to filter the statements returned. ' .
+							'If null all statements are going to be returned.'
+					],
+					'best' => [
+						'type' => Type::boolean(),
+						'description' => 'If true only returns the best statements will be returned. ' .
+							'This works by returning for each main snak properties ' .
+							'the statements with the prefered rank or, if there is none, ' .
+							'the statements with the normal rank'
+					]
+				],
+				'resolve' => function ( StatementListProvider $value, $args ) {
+					$statements = $value->getStatements();
+					$propertyIds = $this->getArgSafe( $args, 'propertyIds' );
+					if ( $propertyIds !== null ) {
+						$statements = $statements->filter( new PropertySetStatementFilter( $propertyIds ) );
+					}
+					if ( $this->getArgSafe( $args, 'best' ) ) {
+						$statements = $this->getBestStatementsForEachProperty( $statements );
+					}
+					return $statements;
+				}
 			]
 		];
+	}
+
+	/**
+	 * TODO: migrate to WikibaseDataModel
+	 */
+	private function getBestStatementsForEachProperty( StatementList $statements ) {
+		$filteredStatements = new StatementList();
+		foreach ( $statements->getPropertyIds() as $propertyId ) {
+			foreach ( $statements->getByPropertyId( $propertyId )->getBestStatements() as $statement ) {
+				$filteredStatements->addStatement( $statement );
+			}
+		}
+		return $filteredStatements;
 	}
 
 	private function statementList() {
@@ -490,41 +567,43 @@ class WikibaseDataModelRegistry {
 	public function statement() {
 		return $this->statement ?: ( $this->statement = new ObjectType( [
 			'name' => 'Statement',
-			'fields' => [
-				'id' => [
-					// TODO: not nullable?
-					'type' => Type::id(),
-					'description' =>
-						'an arbitrary identifier for the claim, which is unique across the repository',
-					'resolve' => function ( Statement $value ) {
-						return $value->getGuid();
-					}
-				],
-				'rank' => [
-					'type' => Type::nonNull( $this->rank() ),
-					'resolve' => function ( Statement $value ) {
-						return $value->getRank();
-					}
-				],
-				'mainsnak' => [
-					'type' => Type::nonNull( $this->snak() ),
-					'resolve' => function ( Statement $value ) {
-						return $value->getMainSnak();
-					}
-				],
-				'qualifiers' => [
-					'type' => Type::nonNull( $this->snakList() ),
-					'resolve' => function ( Statement $value ) {
-						return $value->getQualifiers();
-					}
-				],
-				'references' => [
-					'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->reference() ) ) ),
-					'resolve' => function ( Statement $value ) {
-						return $value->getReferences();
-					}
-				]
-			]
+			'fields' => function () {
+				return [
+					'id' => [
+						// TODO: not nullable?
+						'type' => Type::id(),
+						'description' =>
+							'an arbitrary identifier for the claim, which is unique across the repository',
+						'resolve' => function ( Statement $value ) {
+							return $value->getGuid();
+						}
+					],
+					'rank' => [
+						'type' => Type::nonNull( $this->rank() ),
+						'resolve' => function ( Statement $value ) {
+							return $value->getRank();
+						}
+					],
+					'mainsnak' => [
+						'type' => Type::nonNull( $this->snak() ),
+						'resolve' => function ( Statement $value ) {
+							return $value->getMainSnak();
+						}
+					],
+					'qualifiers' => [
+						'type' => Type::nonNull( $this->snakList() ),
+						'resolve' => function ( Statement $value ) {
+							return $value->getQualifiers();
+						}
+					],
+					'references' => [
+						'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->reference() ) ) ),
+						'resolve' => function ( Statement $value ) {
+							return $value->getReferences();
+						}
+					]
+				];
+			}
 		] ) );
 	}
 
@@ -919,5 +998,9 @@ class WikibaseDataModelRegistry {
 			default:
 				throw new ApiException( 'Unsupported entity type: ' . $entityId->getEntityType() );
 		}
+	}
+
+	private function getArgSafe( $args, $name ) {
+		return array_key_exists( $name, $args ) ? $args[$name] : null;
 	}
 }
