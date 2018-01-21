@@ -31,7 +31,6 @@ use Wikibase\DataModel\Services\Lookup\EntityLookup;
 use Wikibase\DataModel\Services\Lookup\PropertyDataTypeLookup;
 use Wikibase\DataModel\Services\Statement\Filter\PropertySetStatementFilter;
 use Wikibase\DataModel\SiteLink;
-use Wikibase\DataModel\SiteLinkList;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\DataModel\Snak\Snak;
 use Wikibase\DataModel\Snak\SnakList;
@@ -43,8 +42,6 @@ use Wikibase\DataModel\Term\Term;
 
 class WikibaseDataModelRegistry {
 
-	private $availableLanguageCodes;
-	private $availableSites;
 	private $propertiesByDatatype;
 	private $entityLookup;
 	private $propertyDataTypeLookup;
@@ -58,7 +55,6 @@ class WikibaseDataModelRegistry {
 	private $item;
 	private $property;
 	private $term;
-	private $siteLinkList;
 	private $siteLink;
 	private $statementList;
 	private $statement;
@@ -78,18 +74,14 @@ class WikibaseDataModelRegistry {
 	private $timePrecision;
 	private $unknownValue;
 
-	/** .
-		* @param string[] $availableLanguageCodes
-		* @param string[] $availableSites
-		* @param PropertyId[][] $propertiesByDatatype
-		*/
+	/**
+	 * @param PropertyId[][] $propertiesByDatatype
+	 */
 	public function __construct(
-		array $availableLanguageCodes, array $availableSites, array $propertiesByDatatype,
+		array $propertiesByDatatype,
 		EntityLookup $entityLookup, PropertyDataTypeLookup $propertyDataTypeLookup,
 		EntityIdParser $entityIdParser, EntityIdParser $entityUriParser
 	) {
-		$this->availableSites = $availableSites;
-		$this->availableLanguageCodes = $availableLanguageCodes;
 		$this->propertiesByDatatype = $propertiesByDatatype;
 		$this->entityLookup = $entityLookup;
 		$this->propertyDataTypeLookup = $propertyDataTypeLookup;
@@ -251,11 +243,31 @@ class WikibaseDataModelRegistry {
 				$this->fingerprintProviderFields() +
 				$this->statementListProviderFields() + [
 					'sitelinks' => [
-						'type' => Type::nonNull( $this->siteLinkList() ),
-						'resolve' => function ( Item $value ) {
-							return $value->getSiteLinkList();
+						'type' => Type::nonNull( Type::listOf( $this->siteLink() ) ),
+						'description' => 'sitelinks of the entity (unique per site id)',
+						'args' => [
+							'sites' => [
+								'type' => Type::listOf( Type::nonNull( Type::string() ) ),
+								'description' => 'List of site ids to returns the sitelinks for. ' .
+									'If null all sitelinks are going to be returned. ' .
+									'If not null the result array has the same size as the input array ' .
+									'and the sitelinks are in the same position as their site id in the input array.'
+							]
+						],
+						'resolve' => function ( Item $value, $args ) {
+							$siteIds = $this->getArgSafe( $args, 'sites' );
+							if ( $siteIds === null ) {
+								return $value->getSiteLinkList();
+							}
+							return array_map( function ( $siteId ) use ( $value ) {
+								try {
+									return $value->getSiteLinkList()->getBySiteId( $siteId );
+								} catch ( OutOfBoundsException $e ) {
+									return null;
+								}
+							}, $siteIds );
 						}
-					]
+					],
 				]
 		] ) );
 	}
@@ -301,7 +313,7 @@ class WikibaseDataModelRegistry {
 				'type' => Type::nonNull( Type::listOf( $this->term() ) ),
 				'description' => 'labels of the entity (unique per language)',
 				'args' => [
-					'language' => [
+					'languages' => [
 						'type' => Type::listOf( Type::nonNull( Type::string() ) ),
 						'description' => 'List of languages to returns the labels in. ' .
 							'If null all labels are going to be returned. ' .
@@ -310,7 +322,7 @@ class WikibaseDataModelRegistry {
 					]
 				],
 				'resolve' => function ( FingerprintProvider $value, $args ) {
-					$languages = $this->getArgSafe( $args, 'language' );
+					$languages = $this->getArgSafe( $args, 'languages' );
 					if ( $languages === null ) {
 						return $value->getFingerprint()->getLabels();
 					}
@@ -343,7 +355,7 @@ class WikibaseDataModelRegistry {
 				'type' => Type::nonNull( Type::listOf( $this->term() ) ),
 				'description' => 'descriptions of the entity (unique per language)',
 				'args' => [
-					'language' => [
+					'languages' => [
 						'type' => Type::listOf( Type::nonNull( Type::string() ) ),
 						'description' => 'List of languages to returns the descriptions in. ' .
 							'If null all descriptions are going to be returned. ' .
@@ -352,7 +364,7 @@ class WikibaseDataModelRegistry {
 					]
 				],
 				'resolve' => function ( FingerprintProvider $value, $args ) {
-					$languages = $this->getArgSafe( $args, 'language' );
+					$languages = $this->getArgSafe( $args, 'languages' );
 					if ( $languages === null ) {
 						return $value->getFingerprint()->getDescriptions();
 					}
@@ -369,15 +381,14 @@ class WikibaseDataModelRegistry {
 				'type' => Type::nonNull( Type::listOf( $this->term() ) ),
 				'description' => 'aliases of the entity (unique per language)',
 				'args' => [
-					'language' => [
+					'languages' => [
 						'type' => Type::listOf( Type::nonNull( Type::string() ) ),
 						'description' => 'List of languages to returns the aliases in. ' .
 							'If null all aliases are going to be returned.'
 					]
 				],
 				'resolve' => function ( FingerprintProvider $value, $args ) {
-					$languages = $this->getArgSafe( $args, 'language' );
-					$results = [];
+					$languages = $this->getArgSafe( $args, 'languages' );
 					$aliasGroups = $value->getFingerprint()->getAliasGroups();
 					if ( $languages !== null ) {
 						$aliasGroups = $aliasGroups->getWithLanguages( $languages );
@@ -392,14 +403,6 @@ class WikibaseDataModelRegistry {
 				}
 			],
 		];
-	}
-
-	private function buildFieldsForAllLanguages( callable $fieldBuilder ) {
-		$fields = [];
-		foreach ( $this->availableLanguageCodes as $languageCode ) {
-			$fields[str_replace( '-', '_', $languageCode )] = $fieldBuilder( $languageCode );
-		}
-		return $fields;
 	}
 
 	public function term() {
@@ -424,62 +427,36 @@ class WikibaseDataModelRegistry {
 		] ) );
 	}
 
-	public function siteLinkList() {
-		return $this->siteLinkList ?: ( $this->siteLinkList = new ObjectType( [
-			'name' => 'SiteLinkList',
-			'fields' => function () {
-				return $this->buildFieldsForAllSites( function ( $siteId ) {
-					return [
-						'type' => $this->siteLink(),
-						'resolve' => function ( SiteLinkList $value ) use ( $siteId ) {
-							try {
-								return $value->getBySiteId( $siteId );
-							} catch ( OutOfBoundsException $e ) {
-								return null;
-							}
-						}
-					];
-				} );
-			}
-		] ) );
-	}
-
-	private function buildFieldsForAllSites( callable $fieldBuilder ) {
-		$fields = [];
-		foreach ( $this->availableSites as $site ) {
-			$fields[str_replace( '-', '_', $site )] = $fieldBuilder( $site );
-		}
-		return $fields;
-	}
-
 	public function siteLink() {
 		return $this->siteLink ?: ( $this->siteLink = new ObjectType( [
 			'name' => 'SiteLink',
-			'fields' => [
-				'site' => [
-					'type' => Type::nonNull( Type::string() ),
-					'description' => 'site id',
-					'resolve' => function ( SiteLink $value ) {
-						return $value->getSiteId();
-					}
-				],
-				'title' => [
-					'type' => Type::nonNull( Type::string() ),
-					'description' => 'page title',
-					'resolve' => function ( SiteLink $value ) {
-						return $value->getPageName();
-					}
-				],
-				'badges' => [
-					'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->item() ) ) ),
-					'description' => 'any "badges" associated with the page (such as "featured article")',
-					'resolve' => function ( SiteLink $value ) {
-						return array_map( function ( ItemId $itemId ) {
-							return $this->getEntityWithEmpty( $itemId );
-						}, $value->getBadges() );
-					}
-				]
-			]
+			'fields' => function () {
+				return [
+					'site' => [
+						'type' => Type::nonNull( Type::string() ),
+						'description' => 'site id',
+						'resolve' => function ( SiteLink $value ) {
+							return $value->getSiteId();
+						}
+					],
+					'title' => [
+						'type' => Type::nonNull( Type::string() ),
+						'description' => 'page title',
+						'resolve' => function ( SiteLink $value ) {
+							return $value->getPageName();
+						}
+					],
+					'badges' => [
+						'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->item() ) ) ),
+						'description' => 'any "badges" associated with the page (such as "featured article")',
+						'resolve' => function ( SiteLink $value ) {
+							return array_map( function ( ItemId $itemId ) {
+								return $this->getEntityWithEmpty( $itemId );
+							}, $value->getBadges() );
+						}
+					]
+				];
+			}
 		] ) );
 	}
 

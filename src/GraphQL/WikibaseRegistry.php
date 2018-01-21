@@ -10,8 +10,6 @@ use GraphQL\Utils\Utils;
 use GraphQLRelay\Connection\ArrayConnection;
 use GraphQLRelay\Relay;
 use Psr\SimpleCache\CacheInterface;
-use Tptools\Api\WikibaseLanguageCodesGetter;
-use Tptools\Api\WikibaseSitesGetter;
 use Tptools\Api\WikidataPropertiesByDatatypeGetter;
 use Tptools\SparqlClient;
 use Tptools\WikidataUtils;
@@ -44,15 +42,16 @@ class WikibaseRegistry {
 	private $labelSetter;
 
 	public function __construct(
-		array $availableLanguageCodes, array $availableSites, array $propertiesByDatatype,
+		array $propertiesByDatatype,
 		EntityIdParser $entityIdParser, EntityIdParser $entityUriParser, EntityLookup $entityLookup,
 		ItemLookup $itemLookup, PropertyLookup $propertyLookup,
 		PropertyDataTypeLookup $propertyDataTypeLookup, SparqlClient $sparqlClient,
 		LabelSetter $labelSetter
 	) {
 		$this->wikibaseDataModelRegistry = new WikibaseDataModelRegistry(
-			$availableLanguageCodes, $availableSites, $propertiesByDatatype,
-			$entityLookup, $propertyDataTypeLookup, $entityIdParser, $entityUriParser
+			$propertiesByDatatype,
+			$entityLookup, $propertyDataTypeLookup,
+			$entityIdParser, $entityUriParser
 		);
 		$this->entityIdParser = $entityIdParser;
 		$this->entityLookup = $entityLookup;
@@ -201,12 +200,6 @@ class WikibaseRegistry {
 		$sparqlClient = new SparqlClient();
 
 		return new self(
-			self::getOrSet( $cache, 'wd.languageCodes', function () use ( $wikidataUtils ) {
-				return ( new WikibaseLanguageCodesGetter( $wikidataUtils->getMediawikiApi() ) )->get();
-			}, self::CONFIGURATION_CACHE_TTL ),
-			self::getOrSet( $cache, 'wd.sites', function () use ( $wikidataUtils ) {
-				return ( new WikibaseSitesGetter( $wikidataUtils->getMediawikiApi() ) )->get();
-			}, self::CONFIGURATION_CACHE_TTL ),
 			self::getOrSet( $cache, 'wd.propertiesByDatatype', function () use ( $sparqlClient ) {
 				return ( new WikidataPropertiesByDatatypeGetter( $sparqlClient ) )->get();
 			}, self::CONFIGURATION_CACHE_TTL ),
