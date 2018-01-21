@@ -33,7 +33,7 @@ class WikibaseRegistry {
 	const CONFIGURATION_CACHE_TTL = 86400;
 
 	// Query limit
-	const MAX_QUERY_SIZE = 1000;
+	const MAX_QUERY_SIZE = 500;
 
 	private $wikibaseDataModelRegistry;
 	private $entityIdParser;
@@ -116,7 +116,9 @@ class WikibaseRegistry {
 						$first = self::getArgSafe( $args, 'first' );
 
 						$offset = ArrayConnection::getOffsetWidthDefault( $after, 0 );
-						$limit = $first === null ? self::MAX_QUERY_SIZE : $first;
+						$limit = $first === null
+							? self::MAX_QUERY_SIZE
+							: min( self::MAX_QUERY_SIZE, $first );
 
 						$data = array_map( function ( EntityId $entityId ) {
 							return $this->entityLookup->getEntity( $entityId );
