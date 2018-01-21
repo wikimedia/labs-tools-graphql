@@ -242,6 +242,23 @@ class WikibaseDataModelRegistry {
 				$this->entity()->getFields() +
 				$this->fingerprintProviderFields() +
 				$this->statementListProviderFields() + [
+					'sitelink' => [
+						'type' => $this->siteLink(),
+						'description' => 'sitelink of the entity (unique per site id)',
+						'args' => [
+							'site' => [
+								'type' => Type::nonNull( Type::string() ),
+								'description' => 'Site id of the sitelink like "enwiki".'
+							]
+						],
+						'resolve' => function ( Item $value, $args ) {
+							try {
+								return $value->getSiteLinkList()->getBySiteId( $args['site'] );
+							} catch ( OutOfBoundsException $e ) {
+								return null;
+							}
+						}
+					],
 					'sitelinks' => [
 						'type' => Type::nonNull( Type::listOf( $this->siteLink() ) ),
 						'description' => 'sitelinks of the entity (unique per site id)',
@@ -267,7 +284,7 @@ class WikibaseDataModelRegistry {
 								}
 							}, $siteIds );
 						}
-					],
+					]
 				]
 		] ) );
 	}
