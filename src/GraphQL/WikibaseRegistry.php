@@ -9,6 +9,7 @@ use GraphQL\Type\SchemaConfig;
 use GraphQL\Utils\Utils;
 use GraphQLRelay\Connection\ArrayConnection;
 use GraphQLRelay\Relay;
+use Tptools\InProcessCachingEntityLookup;
 use Tptools\SparqlClient;
 use Tptools\WikidataUtils;
 use Wikibase\Api\Service\LabelSetter;
@@ -18,9 +19,7 @@ use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Services\Lookup\EntityLookup;
 use Wikibase\DataModel\Services\Lookup\EntityRetrievingDataTypeLookup;
-use Wikibase\DataModel\Services\Lookup\ItemLookup;
 use Wikibase\DataModel\Services\Lookup\PropertyDataTypeLookup;
-use Wikibase\DataModel\Services\Lookup\PropertyLookup;
 use Wikibase\DataModel\Term\Term;
 
 class WikibaseRegistry {
@@ -34,14 +33,11 @@ class WikibaseRegistry {
 	private $wikibaseDataModelRegistry;
 	private $entityIdParser;
 	private $entityLookup;
-	private $itemLookup;
-	private $propertyLookup;
 	private $sparqlClient;
 	private $labelSetter;
 
 	public function __construct(
 		EntityIdParser $entityIdParser, EntityIdParser $entityUriParser, EntityLookup $entityLookup,
-		ItemLookup $itemLookup, PropertyLookup $propertyLookup,
 		PropertyDataTypeLookup $propertyDataTypeLookup, SparqlClient $sparqlClient,
 		LabelSetter $labelSetter
 	) {
@@ -51,8 +47,6 @@ class WikibaseRegistry {
 		);
 		$this->entityIdParser = $entityIdParser;
 		$this->entityLookup = $entityLookup;
-		$this->itemLookup = $itemLookup;
-		$this->propertyLookup = $propertyLookup;
 		$this->sparqlClient = $sparqlClient;
 		$this->labelSetter = $labelSetter;
 	}
@@ -134,7 +128,7 @@ class WikibaseRegistry {
 					'resolve' => function ( $value, $args ) {
 						$entityId = $this->wikibaseDataModelRegistry->parseEntityId( $args['id'] );
 						if ( $entityId instanceof ItemId ) {
-							return $this->itemLookup->getItemForId( $entityId );
+							return $this->entityLookup->getEntity( $entityId );
 						} else {
 							throw new ApiException(
 								Utils::printSafeJson( $entityId->getSerialization() ) . ' is not an item id.'
@@ -152,7 +146,7 @@ class WikibaseRegistry {
 					'resolve' => function ( $value, $args ) {
 						$entityId = $this->wikibaseDataModelRegistry->parseEntityId( $args['id'] );
 						if ( $entityId instanceof PropertyId ) {
-							return $this->propertyLookup->getPropertyForId( $entityId );
+							return $this->entityLookup->getEntity( $entityId );
 						} else {
 							throw new ApiException(
 								Utils::printSafeJson( $entityId->getSerialization() ) . ' is not a property id.'
@@ -194,14 +188,13 @@ class WikibaseRegistry {
 		$wikidataUtils = new WikidataUtils();
 		$wikibaseFactory = $wikidataUtils->getWikibaseFactory();
 		$sparqlClient = new SparqlClient();
+		$entityLookup = new InProcessCachingEntityLookup( $wikibaseFactory->newEntityLookup() );
 
 		return new self(
 			$wikidataUtils->newEntityIdParser(),
 			$wikidataUtils->newEntityUriParser(),
-			$wikibaseFactory->newEntityLookup(),
-			$wikibaseFactory->newItemLookup(),
-			$wikibaseFactory->newPropertyLookup(),
-			new EntityRetrievingDataTypeLookup( $wikibaseFactory->newEntityLookup() ),
+			$entityLookup,
+			new EntityRetrievingDataTypeLookup( $entityLookup ),
 			$sparqlClient,
 			$wikibaseFactory->newLabelSetter()
 		);
