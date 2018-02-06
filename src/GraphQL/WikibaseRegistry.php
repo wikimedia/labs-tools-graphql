@@ -9,7 +9,6 @@ use GraphQL\Type\SchemaConfig;
 use GraphQL\Utils\Utils;
 use GraphQLRelay\Connection\ArrayConnection;
 use GraphQLRelay\Relay;
-use Psr\SimpleCache\CacheInterface;
 use Tptools\SparqlClient;
 use Tptools\WikidataUtils;
 use Wikibase\Api\Service\LabelSetter;
@@ -191,7 +190,7 @@ class WikibaseRegistry {
 		] );
 	}
 
-	public static function newForWikidata( CacheInterface $cache ) {
+	public static function newForWikidata() {
 		$wikidataUtils = new WikidataUtils();
 		$wikibaseFactory = $wikidataUtils->getWikibaseFactory();
 		$sparqlClient = new SparqlClient();
