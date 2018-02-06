@@ -1,13 +1,12 @@
 <?php
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+ini_set( 'display_errors', 1 );
+ini_set( 'display_startup_errors', 1 );
+error_reporting( E_ALL );
 
 use Tptools\MicrodataToWikidataConverter;
 
 include __DIR__ . '/../vendor/autoload.php';
-
 
 header( 'Access-Control-Allow-Origin: https://www.wikidata.org' );
 
@@ -19,4 +18,7 @@ if ( !array_key_exists( 'title', $_GET ) ) {
 
 $title = htmlspecialchars( $_GET['title'], ENT_QUOTES, 'UTF-8' );
 header( 'Content-Type: application/json' );
-print json_encode( ( new MicrodataToWikidataConverter() )->toWikidata( $title ), JSON_PRETTY_PRINT );
+print json_encode(
+	( new MicrodataToWikidataConverter() )->toWikidata( $title ),
+	JSON_PRETTY_PRINT
+);
