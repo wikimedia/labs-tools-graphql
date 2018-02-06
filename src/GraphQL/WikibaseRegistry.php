@@ -10,7 +10,6 @@ use GraphQL\Utils\Utils;
 use GraphQLRelay\Connection\ArrayConnection;
 use GraphQLRelay\Relay;
 use Psr\SimpleCache\CacheInterface;
-use Tptools\Api\WikidataPropertiesByDatatypeGetter;
 use Tptools\SparqlClient;
 use Tptools\WikidataUtils;
 use Wikibase\Api\Service\LabelSetter;
@@ -42,14 +41,12 @@ class WikibaseRegistry {
 	private $labelSetter;
 
 	public function __construct(
-		array $propertiesByDatatype,
 		EntityIdParser $entityIdParser, EntityIdParser $entityUriParser, EntityLookup $entityLookup,
 		ItemLookup $itemLookup, PropertyLookup $propertyLookup,
 		PropertyDataTypeLookup $propertyDataTypeLookup, SparqlClient $sparqlClient,
 		LabelSetter $labelSetter
 	) {
 		$this->wikibaseDataModelRegistry = new WikibaseDataModelRegistry(
-			$propertiesByDatatype,
 			$entityLookup, $propertyDataTypeLookup,
 			$entityIdParser, $entityUriParser
 		);
@@ -200,9 +197,6 @@ class WikibaseRegistry {
 		$sparqlClient = new SparqlClient();
 
 		return new self(
-			self::getOrSet( $cache, 'wd.propertiesByDatatype', function () use ( $sparqlClient ) {
-				return ( new WikidataPropertiesByDatatypeGetter( $sparqlClient ) )->get();
-			}, self::CONFIGURATION_CACHE_TTL ),
 			$wikidataUtils->newEntityIdParser(),
 			$wikidataUtils->newEntityUriParser(),
 			$wikibaseFactory->newEntityLookup(),
@@ -212,15 +206,6 @@ class WikibaseRegistry {
 			$sparqlClient,
 			$wikibaseFactory->newLabelSetter()
 		);
-	}
-
-	private static function getOrSet( CacheInterface $cache, $key, callable $default, $ttl ) {
-		$value = $cache->get( $key );
-		if ( $value === null ) {
-			$value = $default();
-			$cache->set( $key, $value, $ttl );
-		}
-		return $value;
 	}
 
 	private function getArgSafe( $args, $name ) {

@@ -25,7 +25,6 @@ use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Entity\Property;
-use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Reference;
 use Wikibase\DataModel\Services\Lookup\EntityLookup;
 use Wikibase\DataModel\Services\Lookup\PropertyDataTypeLookup;
@@ -41,7 +40,6 @@ use Wikibase\DataModel\Term\Term;
 
 class WikibaseDataModelRegistry {
 
-	private $propertiesByDatatype;
 	private $entityLookup;
 	private $propertyDataTypeLookup;
 	private $entityIdParser;
@@ -55,7 +53,6 @@ class WikibaseDataModelRegistry {
 	private $property;
 	private $term;
 	private $siteLink;
-	private $statementList;
 	private $statement;
 	private $rank;
 	private $reference;
@@ -72,15 +69,10 @@ class WikibaseDataModelRegistry {
 	private $timePrecision;
 	private $unknownValue;
 
-	/**
-	 * @param PropertyId[][] $propertiesByDatatype
-	 */
 	public function __construct(
-		array $propertiesByDatatype,
 		EntityLookup $entityLookup, PropertyDataTypeLookup $propertyDataTypeLookup,
 		EntityIdParser $entityIdParser, EntityIdParser $entityUriParser
 	) {
-		$this->propertiesByDatatype = $propertiesByDatatype;
 		$this->entityLookup = $entityLookup;
 		$this->propertyDataTypeLookup = $propertyDataTypeLookup;
 		$this->entityIdParser = $entityIdParser;
@@ -239,7 +231,7 @@ class WikibaseDataModelRegistry {
 				$this->value()->getFields() +
 				$this->entity()->getFields() +
 				$this->fingerprintProviderFields() +
-				$this->statementListProviderFields() + [
+				$this->statementsProviderFields() + [
 					'sitelink' => [
 						'type' => $this->siteLink(),
 						'description' => 'sitelink of the entity (unique per site id)',
@@ -295,7 +287,7 @@ class WikibaseDataModelRegistry {
 				$this->value()->getFields() +
 				$this->entity()->getFields() +
 				$this->fingerprintProviderFields() +
-				$this->statementListProviderFields() + [
+				$this->statementsProviderFields() + [
 					'datatype' => [
 						'type' => Type::nonNull( Type::id() ),
 						'resolve' => function ( Property $value ) {
@@ -475,15 +467,8 @@ class WikibaseDataModelRegistry {
 		] ) );
 	}
 
-	private function statementListProviderFields() {
+	private function statementsProviderFields() {
 		return [
-			'claims' => [
-				'type' => Type::nonNull( $this->statementList() ),
-				'description' => 'statements of the entity',
-				'resolve' => function ( StatementListProvider $value ) {
-					return $value->getStatements();
-				}
-			],
 			'statements' => [
 				'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->statement() ) ) ),
 				'description' => 'statements of the entity',
@@ -527,33 +512,6 @@ class WikibaseDataModelRegistry {
 			}
 		}
 		return $filteredStatements;
-	}
-
-	private function statementList() {
-		return $this->statementList ?: ( $this->statementList = new ObjectType( [
-			'name' => 'StatementList',
-			'fields' => function () {
-				return $this->buildFieldsForAllProperties( function ( PropertyId $propertyId ) {
-					return [
-						'type' => Type::nonNull( Type::listOf( Type::nonNull( $this->statement() ) ) ),
-						'resolve' => function ( StatementList $value ) use ( $propertyId ) {
-							return $value->getByPropertyId( $propertyId );
-						}
-					];
-				} );
-			}
-		] ) );
-	}
-
-	private function buildFieldsForAllProperties( callable $fieldBuilder ) {
-		$fields = [];
-		foreach ( $this->propertiesByDatatype as $properties ) {
-			/** @var PropertyId $propertyId */
-			foreach ( $properties as $propertyId ) {
-				$fields[$propertyId->getSerialization()] = $fieldBuilder( $propertyId );
-			}
-		}
-		return $fields;
 	}
 
 	public function statement() {
