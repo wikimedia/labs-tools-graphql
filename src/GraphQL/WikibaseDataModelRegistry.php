@@ -458,7 +458,7 @@ class WikibaseDataModelRegistry {
 						'description' => 'any "badges" associated with the page (such as "featured article")',
 						'resolve' => function ( SiteLink $value ) {
 							return array_map( function ( ItemId $itemId ) {
-								return $this->getEntityWithEmpty( $itemId );
+								return $this->getEntityWithEmptyDefault( $itemId );
 							}, $value->getBadges() );
 						}
 					]
@@ -645,7 +645,7 @@ class WikibaseDataModelRegistry {
 				'property' => [
 					'type' => Type::nonNull( $this->property() ),
 					'resolve' => function ( Snak $value ) {
-						return $this->getEntityWithEmpty( $value->getPropertyId() )
+						return $this->getEntityWithEmptyDefault( $value->getPropertyId() )
 							?: new Property( $value->getPropertyId() );
 					}
 				]
@@ -697,7 +697,7 @@ class WikibaseDataModelRegistry {
 						'resolve' => function ( PropertyValueSnak $value ) {
 							$dataValue = $value->getDataValue();
 							if ( $dataValue instanceof EntityIdValue ) {
-								return $this->getEntityWithEmpty( $dataValue->getEntityId() );
+								return $this->getEntityWithEmptyDefault( $dataValue->getEntityId() );
 							} else {
 								return $dataValue;
 							}
@@ -793,7 +793,7 @@ class WikibaseDataModelRegistry {
 					'globe' => [
 						'type' => Type::nonNull( $this->item() ),
 						'resolve' => function ( GlobeCoordinateValue $value ) {
-							return $this->getEntityWithEmpty(
+							return $this->getEntityWithEmptyDefault(
 								$this->entityUriParser->parse( $value->getGlobe() )
 							);
 						}
@@ -833,7 +833,7 @@ class WikibaseDataModelRegistry {
 							if ( $unit === '1' ) {
 								return null;
 							}
-							return $this->getEntityWithEmpty( $this->entityUriParser->parse( $unit ) );
+							return $this->getEntityWithEmptyDefault( $this->entityUriParser->parse( $unit ) );
 						}
 					]
 				]
@@ -878,7 +878,7 @@ class WikibaseDataModelRegistry {
 					'calendarmodel' => [
 						'type' => Type::nonNull( $this->item() ),
 						'resolve' => function ( TimeValue $value ) {
-							return $this->getEntityWithEmpty(
+							return $this->getEntityWithEmptyDefault(
 								$this->entityUriParser->parse( $value->getCalendarModel() )
 							);
 						}
@@ -952,7 +952,7 @@ class WikibaseDataModelRegistry {
 	 * @return EntityDocument
 	 * @throws ApiException
 	 */
-	private function getEntityWithEmpty( EntityId $entityId ) {
+	private function getEntityWithEmptyDefault( EntityId $entityId ) {
 		$entity = $this->entityLookup->getEntity( $entityId );
 		if ( $entity !== null ) {
 			return $entity;
