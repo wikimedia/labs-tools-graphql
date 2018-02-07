@@ -644,7 +644,7 @@ class WikibaseDataModelRegistry {
 				],
 				'property' => [
 					'type' => Type::nonNull( $this->property() ),
-					'resolve' => function ( PropertyValueSnak $value ) {
+					'resolve' => function ( Snak $value ) {
 						return $this->getEntityWithEmpty( $value->getPropertyId() )
 							?: new Property( $value->getPropertyId() );
 					}
