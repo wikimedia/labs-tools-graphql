@@ -289,7 +289,7 @@ class WikibaseDataModelRegistry {
 				$this->fingerprintProviderFields() +
 				$this->statementsProviderFields() + [
 					'datatype' => [
-						'type' => Type::nonNull( Type::id() ),
+						'type' => Type::nonNull( Type::string() ),
 						'resolve' => function ( Property $value ) {
 							return $value->getDataTypeId();
 						}
@@ -704,7 +704,8 @@ class WikibaseDataModelRegistry {
 						}
 					],
 					'datatype' => [
-						'type' => Type::nonNull( Type::id() ),
+						'type' => Type::nonNull( Type::string() ),
+						'deprecationReason' => 'Duplicates of property.datatype',
 						'resolve' => function ( PropertyValueSnak $value ) {
 							return $this->propertyDataTypeLookup->getDataTypeIdForProperty( $value->getPropertyId() );
 						}
