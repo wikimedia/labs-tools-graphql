@@ -162,24 +162,31 @@ class WikibaseRegistry {
 		return new ObjectType( [
 			'name' => 'Mutation',
 			'fields' => [
-				'setLabel' => [
-					'type' => Type::nonNull( Type::boolean() ),
-					'args' => [
+				'setLabel' => Relay::mutationWithClientMutationId([
+					'name' => 'SetLabel',
+					'description' => 'Sets a label for a single Wikibase entity',
+					'inputFields' => [
 						'id' => [
-							'type' => Type::nonNull( Type::id() )
+							'type' => Type::nonNull( Type::id() ),
+							'description' => 'The identifier for the entity, including the prefix'
 						],
 						'language' => [
-							'type' => Type::nonNull( Type::string() )
+							'type' => Type::nonNull( Type::string() ),
+							'description' => 'Language of the label'
 						],
 						'value' => [
-							'type' => Type::nonNull( Type::string() )
+							'type' => Type::nonNull( Type::string() ),
+							'description' => 'The value of the label'
 						]
 					],
-					'resolve' => function ( $value, $args ) {
+					'outputFields' => [
+					],
+					'mutateAndGetPayload' => function ( $args ) {
 						$entityId = $this->wikibaseDataModelRegistry->parseEntityId( $args['id'] );
-						return $this->labelSetter->set( new Term( $args['language'], $args['value'] ), $entityId );
+						$this->labelSetter->set( new Term( $args['language'], $args['value'] ), $entityId );
+						return [];
 					}
-				]
+				])
 			]
 		] );
 	}
