@@ -10,6 +10,7 @@ use DataValues\StringValue;
 use DataValues\TimeValue;
 use DataValues\UnboundedQuantityValue;
 use DataValues\UnknownValue;
+use GraphQL\Error\InvariantViolation;
 use GraphQL\Type\Definition\EnumType;
 use GraphQL\Type\Definition\InterfaceType;
 use GraphQL\Type\Definition\ObjectType;
@@ -51,7 +52,6 @@ class WikibaseDataModelRegistry {
 	private $entity;
 	private $item;
 	private $property;
-	private $term;
 	private $siteLink;
 	private $statement;
 	private $rank;
@@ -301,7 +301,7 @@ class WikibaseDataModelRegistry {
 	private function fingerprintProviderFields() {
 		return [
 			'label' => [
-				'type' => $this->term(),
+				'type' => $this->monolingualTextValue(),
 				'description' => 'label of the entity',
 				'args' => [
 					'language' => [
@@ -317,7 +317,7 @@ class WikibaseDataModelRegistry {
 				}
 			],
 			'labels' => [
-				'type' => Type::nonNull( Type::listOf( $this->term() ) ),
+				'type' => Type::nonNull( Type::listOf( $this->monolingualTextValue() ) ),
 				'description' => 'labels of the entity (unique per language)',
 				'args' => [
 					'languages' => [
@@ -343,7 +343,7 @@ class WikibaseDataModelRegistry {
 				}
 			],
 			'description' => [
-				'type' => $this->term(),
+				'type' => $this->monolingualTextValue(),
 				'description' => 'description of the entity',
 				'args' => [
 					'language' => [
@@ -359,7 +359,7 @@ class WikibaseDataModelRegistry {
 				}
 			],
 			'descriptions' => [
-				'type' => Type::nonNull( Type::listOf( $this->term() ) ),
+				'type' => Type::nonNull( Type::listOf( $this->monolingualTextValue() ) ),
 				'description' => 'descriptions of the entity (unique per language)',
 				'args' => [
 					'languages' => [
@@ -385,7 +385,7 @@ class WikibaseDataModelRegistry {
 				}
 			],
 			'aliases' => [
-				'type' => Type::nonNull( Type::listOf( $this->term() ) ),
+				'type' => Type::nonNull( Type::listOf( $this->monolingualTextValue() ) ),
 				'description' => 'aliases of the entity (unique per language)',
 				'args' => [
 					'languages' => [
@@ -410,28 +410,6 @@ class WikibaseDataModelRegistry {
 				}
 			],
 		];
-	}
-
-	public function term() {
-		return $this->term ?: ( $this->term = new ObjectType( [
-			'name' => 'Term',
-			'fields' => [
-				'language' => [
-					'type' => Type::nonNull( Type::string() ),
-					'description' => 'language code of the text',
-					'resolve' => function ( Term $value ) {
-						return $value->getLanguageCode();
-					}
-				],
-				'value' => [
-					'type' => Type::nonNull( Type::string() ),
-					'description' => 'text',
-					'resolve' => function ( Term $value ) {
-						return $value->getText();
-					}
-				]
-			]
-		] ) );
 	}
 
 	public function siteLink() {
@@ -746,21 +724,46 @@ class WikibaseDataModelRegistry {
 	}
 
 	public function monolingualTextValue() {
-		// TODO: merge with Term?
 		return $this->monolingualTextValue ?: ( $this->monolingualTextValue = new ObjectType( [
 			'name' => 'MonolingualTextValue',
 			'interfaces' => [ $this->value() ],
 			'fields' => $this->value()->getFields() + [
 					'language' => [
 						'type' => Type::nonNull( Type::string() ),
-						'resolve' => function ( MonolingualTextValue $value ) {
-							return $value->getLanguageCode();
+						'description' => 'language code of the text',
+						'resolve' => function ( $value ) {
+							if ( $value instanceof MonolingualTextValue ) {
+								return $value->getLanguageCode();
+							} elseif ( $value instanceof Term ) {
+								return $value->getLanguageCode();
+							} else {
+								throw new InvariantViolation( 'Not expected MonolingualTermValue input: ' . $value );
+							}
 						}
 					],
 					'text' => [
 						'type' => Type::nonNull( Type::string() ),
-						'resolve' => function ( MonolingualTextValue $value ) {
-							return $value->getText();
+						'resolve' => function ( $value ) {
+							if ( $value instanceof MonolingualTextValue ) {
+								return $value->getText();
+							} elseif ( $value instanceof Term ) {
+								return $value->getText();
+							} else {
+								throw new InvariantViolation( 'Not expected MonolingualTermValue input: ' . $value );
+							}
+						}
+					],
+					'value' => [
+						'type' => Type::nonNull( Type::string() ),
+						'deprecationReason' => 'Duplicates of MonolingualTextValue.text',
+						'resolve' => function ( $value ) {
+							if ( $value instanceof MonolingualTextValue ) {
+								return $value->getText();
+							} elseif ( $value instanceof Term ) {
+								return $value->getText();
+							} else {
+								throw new InvariantViolation( 'Not expected MonolingualTermValue input: ' . $value );
+							}
 						}
 					]
 				]
