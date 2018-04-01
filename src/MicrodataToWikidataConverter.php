@@ -122,8 +122,10 @@ class MicrodataToWikidataConverter {
 		$this->addItemRelation( $entity, $item, 'translator', 'P655' );
 		$this->addItemRelation( $entity, $item, 'illustrator', 'P110' );
 		$this->addItemRelation( $entity, $item, 'editor', 'P98' );
-		$this->addItemRelation( $entity, $item, 'publisher', 'P123', 'Q2085381' );
-		$this->addYearRelation( $entity, $item, 'datePublished', 'P577' );
+		if ( !$item->getStatements()->getByPropertyId( new PropertyId( 'P361' ) )->isEmpty() ) {
+			$this->addItemRelation( $entity, $item, 'publisher', 'P123', 'Q2085381' );
+			$this->addYearRelation( $entity, $item, 'datePublished', 'P577' );
+		}
 		$this->addLanguageRelation( $entity, $item, 'inLanguage', 'P407' );
 		$this->addStringRelation( $entity, $item, 'volumeNumber', 'P478' );
 		$this->addStringRelation( $entity, $item, 'pagination', 'P304' );
