@@ -8,6 +8,7 @@ use DataValues\TimeValue;
 use linclark\MicrodataPHP\MicrodataPhp;
 use Serializers\Serializer;
 use Wikibase\Api\Service\RevisionGetter;
+use Wikibase\DataModel\Entity\EntityDocument;
 use Wikibase\DataModel\Entity\EntityIdParser;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -15,6 +16,7 @@ use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Reference;
 use Wikibase\DataModel\ReferenceList;
+use Wikibase\DataModel\SiteLink;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\DataModel\Snak\SnakList;
 use Wikibase\DataModel\Statement\Statement;
@@ -56,20 +58,13 @@ class MicrodataToWikidataConverter {
 			'url' => 'https://fr.wikisource.org/wiki/' . str_replace( ' ', '_', $title )
 		] ) )->obj();
 
-		$entitiesById = [];
-		$entityWithoutId = (object)[
-			'type' => [],
-			'properties' => []
-		];
+		$entitiesById = [ null => (object)[ 'properties' => [] ] ];
 		foreach ( $microdata->items as $item ) {
-			if ( property_exists( $item, 'id' ) ) {
-				if ( array_key_exists( $item->id, $entitiesById ) ) {
-					$this->mergeInto( $entitiesById[$item->id], $item );
-				} else {
-					$entitiesById[$item->id] = $item;
-				}
+			$id = property_exists( $item, 'id' ) ? $item->id : null;
+			if ( array_key_exists( $id, $entitiesById ) ) {
+				$this->mergeInto( $entitiesById[$id], $item );
 			} else {
-				$this->mergeInto( $entityWithoutId, $item );
+				$entitiesById[$id] = $item;
 			}
 		}
 
@@ -85,12 +80,12 @@ class MicrodataToWikidataConverter {
 		}
 
 		// We find the entity to process
-		if ( $item->getId() !== null ) {
-			$uri = 'http://www.wikidata.org/entity/' . $item->getId();
-			$entity = array_key_exists( $uri, $entitiesById ) ? $entitiesById[$uri] : $entityWithoutId;
-		} else {
-			$entity = $entityWithoutId;
+		$uri = $this->getUriForEntity( $item );
+		if ( !array_key_exists( $uri, $entitiesById ) ) {
+			// Nothing found
+			return $this->itemSerializer->serialize( $item );
 		}
+		$entity = $entitiesById[$uri];
 
 		// We normalize pagination
 		if (
@@ -137,7 +132,12 @@ class MicrodataToWikidataConverter {
 		$this->addItemRelation( $entity, $item,
 			'http://purl.org/library/placeOfPublication', 'P291', 'Q2221906'
 		);
-		// TODO: badges
+
+		// Badge
+		$item->getSiteLinkList()->setSiteLink( $this->extractBadge(
+			$item->getSiteLinkList()->getBySiteId( 'frwikisource' ),
+			$entitiesById
+		) );
 
 		return $this->itemSerializer->serialize( $item );
 	}
@@ -161,7 +161,8 @@ class MicrodataToWikidataConverter {
 		}
 		if ( property_exists( $entity, 'id' ) ) {
 			return $this->entityUriParser->parse( $entity->id );
-		} elseif ( array_key_exists( 'mainEntityOfPage', $entity->properties ) ) {
+		}
+		if ( array_key_exists( 'mainEntityOfPage', $entity->properties ) ) {
 			$title = str_replace(
 				'https://fr.wikisource.org/wiki/', '',
 				$entity->properties['mainEntityOfPage'][0]
@@ -263,5 +264,57 @@ class MicrodataToWikidataConverter {
 				$target->properties = $other->properties;
 			}
 		}
+	}
+
+	private function extractBadge( SiteLink $siteLink, array $entitiesById ) {
+		$siteUri = $this->getUriForSiteLink( $siteLink );
+		if ( array_key_exists( $siteUri, $entitiesById ) ) {
+			$linkEntity = $entitiesById[$siteUri];
+			if ( array_key_exists( 'http://wikiba.se/ontology#badge', $linkEntity->properties ) ) {
+				foreach ( $linkEntity->properties['http://wikiba.se/ontology#badge'] as $badge ) {
+					if (
+						property_exists( $badge, 'id' ) &&
+						strpos( $badge->id, 'http://www.wikidata.org/entity/' ) === 0
+					) {
+						$id = str_replace( 'http://www.wikidata.org/entity/', '', $badge->id );
+						$siteLink = $this->siteLinkWithBadge( $siteLink, new ItemId( $id ) );
+					}
+				}
+			}
+		}
+		return $siteLink;
+	}
+
+	private function siteLinkWithBadge( SiteLink $siteLink, ItemId $badge ) {
+		return new SiteLink(
+			$siteLink->getSiteId(),
+			$siteLink->getPageName(),
+			array_unique( array_merge( $siteLink->getBadges(), [ $badge ] ) )
+		);
+	}
+
+	private function getUriForEntity( EntityDocument $entity ) {
+		return $entity->getId() === null ? null : 'http://www.wikidata.org/entity/' . $entity->getId();
+	}
+
+	private function getUriForSiteLink( SiteLink $siteLink ) {
+		// TODO: improve
+		$parts = explode( 'wiki', $siteLink->getSiteId() );
+		if ( $parts[1] === '' ) {
+			$parts[1] = 'pedia';
+		}
+		return 'https://' . $parts[0] . '.wiki' . $parts[1] . '.org/wiki/' .
+			$this->wfUrlencode( $siteLink->getPageName() );
+	}
+
+	/**
+	 * From MediaWiki
+	 */
+	private function wfUrlencode( $s ) {
+		return str_ireplace(
+			[ '%3B', '%40', '%24', '%21', '%2A', '%28', '%29', '%2C', '%2F', '%7E', '%3A' ],
+			[ ';', '@', '$', '!', '*', '(', ')', ',', '/', '~', ':' ],
+			urlencode( str_replace( ' ', '_', $s ) )
+		);
 	}
 }
