@@ -56,12 +56,40 @@ class MicrodataToWikidataConverter {
 			'url' => 'https://fr.wikisource.org/wiki/' . str_replace( ' ', '_', $title )
 		] ) )->obj();
 
-		if ( count( $microdata->items ) ) {
-			$entity = $microdata->items[0];
+		$entitiesById = [];
+		$entityWithoutId = (object)[
+			'type' => [],
+			'properties' => []
+		];
+		foreach ( $microdata->items as $item ) {
+			if ( property_exists( $item, 'id' ) ) {
+				if ( array_key_exists( $item->id, $entitiesById ) ) {
+					$this->mergeInto( $entitiesById[$item->id], $item );
+				} else {
+					$entitiesById[$item->id] = $item;
+				}
+			} else {
+				$this->mergeInto( $entityWithoutId, $item );
+			}
+		}
+
+		// We find the Wikidata revision
+		$revision = $this->wikidataRevisionGetter->getFromSiteAndTitle( 'frwikisource', $title );
+		if ( !$revision ) {
+			// print("$title has no item\n");
+			$item = new Item();
+			$item->getSiteLinkList()->addNewSiteLink( 'frwikisource', $title );
 		} else {
-			$entity = (object)[
-				'properties' => []
-			];
+			/** @var Item $item */
+			$item = $revision->getContent()->getData();
+		}
+
+		// We find the entity to process
+		if ( $item->getId() !== null ) {
+			$uri = 'http://www.wikidata.org/entity/' . $item->getId();
+			$entity = array_key_exists( $uri, $entitiesById ) ? $entitiesById[$uri] : $entityWithoutId;
+		} else {
+			$entity = $entityWithoutId;
 		}
 
 		// We normalize pagination
@@ -74,16 +102,6 @@ class MicrodataToWikidataConverter {
 					$entity->properties['pagination'][] = trim( $start ) . '-' . trim( $end );
 				}
 			}
-		}
-
-		$revision = $this->wikidataRevisionGetter->getFromSiteAndTitle( 'frwikisource', $title );
-		if ( !$revision ) {
-			// print("$title has no item\n");
-			$item = new Item();
-			$item->getSiteLinkList()->addNewSiteLink( 'frwikisource', $title );
-		} else {
-			/** @var Item $item */
-			$item = $revision->getContent()->getData();
 		}
 
 		$fingerprint = $item->getFingerprint();
@@ -226,6 +244,23 @@ class MicrodataToWikidataConverter {
 		if ( array_key_exists( $schemaRelation, $entity->properties ) ) {
 			foreach ( $entity->properties[$schemaRelation] as $string ) {
 				$this->addStatement( $item, new StringValue( trim( $string ) ), $wdProperty );
+			}
+		}
+	}
+
+	private function mergeInto( $target, $other ) {
+		if ( property_exists( $other, 'type' ) ) {
+			if ( property_exists( $target, 'type' ) ) {
+				$target->type = array_unique( array_merge( $target->type, $other->type ) );
+			} else {
+				$target->type = $other->type;
+			}
+		}
+		if ( property_exists( $other, 'properties' ) ) {
+			if ( property_exists( $target, 'properties' ) ) {
+				$target->properties = array_merge( $target->properties, $other->properties );
+			} else {
+				$target->properties = $other->properties;
 			}
 		}
 	}
