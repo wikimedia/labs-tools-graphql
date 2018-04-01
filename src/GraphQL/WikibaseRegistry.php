@@ -162,7 +162,7 @@ class WikibaseRegistry {
 		return new ObjectType( [
 			'name' => 'Mutation',
 			'fields' => [
-				'setLabel' => Relay::mutationWithClientMutationId([
+				'setLabel' => Relay::mutationWithClientMutationId( [
 					'name' => 'SetLabel',
 					'description' => 'Sets a label for a single Wikibase entity',
 					'inputFields' => [
@@ -186,7 +186,7 @@ class WikibaseRegistry {
 						$this->labelSetter->set( new Term( $args['language'], $args['value'] ), $entityId );
 						return [];
 					}
-				])
+				] )
 			]
 		] );
 	}

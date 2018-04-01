@@ -2,9 +2,12 @@
 
 namespace Tptools\GraphQL;
 
-use PHPUnit_Framework_TestCase;
+use PHPUnit\Framework\TestCase;
 
-class WikibaseRegistryTest extends PHPUnit_Framework_TestCase {
+/**
+ * @covers WikibaseRegistry
+ */
+class WikibaseRegistryTest extends TestCase {
 	public function testSchemaValidity() {
 		WikibaseRegistry::newForWikidata()->schema()->assertValid();
 	}
