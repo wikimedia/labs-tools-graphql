@@ -134,6 +134,7 @@ class MicrodataToWikidataConverter {
 		$this->addItemRelation( $entity, $item,
 			'http://purl.org/library/placeOfPublication', 'P291', 'Q2221906'
 		);
+		$this->addScanRelation( $entity, $item );
 
 		// Badge
 		$item->getSiteLinkList()->setSiteLink( $this->extractBadge(
@@ -247,6 +248,23 @@ class MicrodataToWikidataConverter {
 		if ( array_key_exists( $schemaRelation, $entity->properties ) ) {
 			foreach ( $entity->properties[$schemaRelation] as $string ) {
 				$this->addStatement( $item, new StringValue( trim( $string ) ), $wdProperty );
+			}
+		}
+	}
+
+	private function addScanRelation( $entity, $item ) {
+		if ( array_key_exists( 'associatedMedia', $entity->properties ) ) {
+			foreach ( $entity->properties['associatedMedia'] as $media ) {
+				if (
+					property_exists( $media, 'properties' ) &&
+					array_key_exists( 'mainEntityOfPage', $media->properties )
+				) {
+					foreach ( $media->properties['mainEntityOfPage'] as $filePage ) {
+						$parts = explode( ':', $filePage );
+						$fileName = trim( str_replace( '_', ' ', urldecode( $parts[count( $parts ) - 1] ) ) );
+						$this->addStatement( $item, new StringValue( $fileName ), 'P996' );
+					}
+				}
 			}
 		}
 	}
