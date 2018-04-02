@@ -104,13 +104,13 @@ class MicrodataToWikidataConverter {
 			$fingerprint->setLabel( 'fr', $entity->properties['name'][0] );
 		}
 
-		if ( property_exists( $entity, 'type' ) ) {
-			foreach ( $entity->type as $type ) {
-				$type = trim( $type );
-				if ( array_key_exists( $type, self::$TYPE_MAPPING ) ) {
-					$typeId = new ItemId( self::$TYPE_MAPPING[$type] );
-					$this->addStatement( $item, new EntityIdValue( $typeId ), 'P31' );
-				}
+		$types = property_exists( $entity, 'type' )
+			? array_unique( array_map('trim', $entity->type ) )
+			: [];
+		foreach ($types as $type ) {
+			if ( array_key_exists( $type, self::$TYPE_MAPPING ) ) {
+				$typeId = new ItemId( self::$TYPE_MAPPING[$type] );
+				$this->addStatement( $item, new EntityIdValue( $typeId ), 'P31' );
 			}
 		}
 
@@ -122,8 +122,10 @@ class MicrodataToWikidataConverter {
 		$this->addItemRelation( $entity, $item, 'translator', 'P655' );
 		$this->addItemRelation( $entity, $item, 'illustrator', 'P110' );
 		$this->addItemRelation( $entity, $item, 'editor', 'P98' );
-		if ( !$item->getStatements()->getByPropertyId( new PropertyId( 'P361' ) )->isEmpty() ) {
+		if ( $item->getStatements()->getByPropertyId( new PropertyId( 'P361' ) )->isEmpty() ) {
 			$this->addItemRelation( $entity, $item, 'publisher', 'P123', 'Q2085381' );
+		}
+		if ( !in_array('http://schema.org/Chapter', $types, true ) ) {
 			$this->addYearRelation( $entity, $item, 'datePublished', 'P577' );
 		}
 		$this->addLanguageRelation( $entity, $item, 'inLanguage', 'P407' );
