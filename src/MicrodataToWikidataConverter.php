@@ -116,7 +116,11 @@ class MicrodataToWikidataConverter {
 
 		$this->addItemRelation( $entity, $item, 'exampleOfWork', 'P629', 'Q386724' );
 		$this->addItemRelation( $entity, $item, 'translationOfWork', 'P629', 'Q386724' );
-		$this->addItemRelation( $entity, $item, 'isPartOf', 'P361' );
+		if( in_array('http://schema.org/Chapter', $types, true ) ) {
+			$this->addItemRelation( $entity, $item, 'isPartOf', 'P361' );
+		} else {
+			$this->addItemRelation( $entity, $item, 'isPartOf', 'P1433' );
+		}
 		$this->addItemRelation( $entity, $item, 'hasPart', 'P527' );
 		$this->addItemRelation( $entity, $item, 'author', 'P50' );
 		$this->addItemRelation( $entity, $item, 'translator', 'P655' );
