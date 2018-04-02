@@ -6,6 +6,9 @@ use DataValues\DataValue;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use linclark\MicrodataPHP\MicrodataPhp;
+use Mediawiki\Api\MediawikiApi;
+use Mediawiki\Api\MediawikiFactory;
+use Mediawiki\Api\Service\PageGetter;
 use Serializers\Serializer;
 use Wikibase\Api\Service\RevisionGetter;
 use Wikibase\DataModel\Entity\EntityDocument;
@@ -43,6 +46,8 @@ class MicrodataToWikidataConverter {
 	private $sparqlClient;
 	/** @var EntityIdParser */
 	private $entityUriParser;
+	/** @var PageGetter */
+	private $commonsPageGetter;
 
 	public function __construct() {
 		$wikidataUtils = new WikidataUtils();
@@ -51,6 +56,9 @@ class MicrodataToWikidataConverter {
 		$this->itemSerializer = $wikidataUtils->newSerializerFactory()->newItemSerializer();
 		$this->sparqlClient = new SparqlClient();
 		$this->entityUriParser = $wikidataUtils->newEntityUriParser();
+		$this->commonsPageGetter = ( new MediawikiFactory( new MediawikiApi(
+			'https://commons.wikimedia.org/w/api.php'
+		) ) )->newPageGetter();
 	}
 
 	public function toWikidata( $title ) {
@@ -105,9 +113,9 @@ class MicrodataToWikidataConverter {
 		}
 
 		$types = property_exists( $entity, 'type' )
-			? array_unique( array_map('trim', $entity->type ) )
+			? array_unique( array_map( 'trim', $entity->type ) )
 			: [];
-		foreach ($types as $type ) {
+		foreach ( $types as $type ) {
 			if ( array_key_exists( $type, self::$TYPE_MAPPING ) ) {
 				$typeId = new ItemId( self::$TYPE_MAPPING[$type] );
 				$this->addStatement( $item, new EntityIdValue( $typeId ), 'P31' );
@@ -116,7 +124,7 @@ class MicrodataToWikidataConverter {
 
 		$this->addItemRelation( $entity, $item, 'exampleOfWork', 'P629', 'Q386724' );
 		$this->addItemRelation( $entity, $item, 'translationOfWork', 'P629', 'Q386724' );
-		if( in_array('http://schema.org/Chapter', $types, true ) ) {
+		if ( in_array( 'http://schema.org/Chapter', $types, true ) ) {
 			$this->addItemRelation( $entity, $item, 'isPartOf', 'P361' );
 		} else {
 			$this->addItemRelation( $entity, $item, 'isPartOf', 'P1433' );
@@ -129,7 +137,7 @@ class MicrodataToWikidataConverter {
 		if ( $item->getStatements()->getByPropertyId( new PropertyId( 'P361' ) )->isEmpty() ) {
 			$this->addItemRelation( $entity, $item, 'publisher', 'P123', 'Q2085381' );
 		}
-		if ( !in_array('http://schema.org/Chapter', $types, true ) ) {
+		if ( !in_array( 'http://schema.org/Chapter', $types, true ) ) {
 			$this->addYearRelation( $entity, $item, 'datePublished', 'P577' );
 		}
 		$this->addLanguageRelation( $entity, $item, 'inLanguage', 'P407' );
@@ -268,11 +276,23 @@ class MicrodataToWikidataConverter {
 					foreach ( $media->properties['mainEntityOfPage'] as $filePage ) {
 						$parts = explode( ':', $filePage );
 						$fileName = trim( str_replace( '_', ' ', urldecode( $parts[count( $parts ) - 1] ) ) );
-						$this->addStatement( $item, new StringValue( $fileName ), 'P996' );
+						if ( $this->commonsFileExists( $fileName ) ) {
+							$this->addStatement( $item, new StringValue( $fileName ), 'P996' );
+						} else {
+							$this->addStatement( $item, new StringValue(
+								preg_replace( '/\/wiki\/[^:]+:/', '/wiki/Index:', $filePage )
+							), 'P1957' );
+						}
 					}
 				}
 			}
 		}
+	}
+
+	private function commonsFileExists( $fileName ) {
+		return $this->commonsPageGetter->getFromTitle(
+			'File:' . $fileName
+		)->getRevisions()->getLatest() !== null;
 	}
 
 	private function mergeInto( $target, $other ) {
