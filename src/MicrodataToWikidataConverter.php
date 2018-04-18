@@ -63,7 +63,7 @@ class MicrodataToWikidataConverter {
 
 	public function toWikidata( $title ) {
 		$microdata = ( new MicrodataPhp( [
-			'url' => 'https://fr.wikisource.org/wiki/' . str_replace( ' ', '_', $title )
+			'url' => 'https://fr.wikisource.org/wiki/' . $this->wfUrlencode( $title )
 		] ) )->obj();
 
 		$entitiesById = [ null => (object)[ 'properties' => [] ] ];
