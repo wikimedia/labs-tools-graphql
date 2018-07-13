@@ -62,9 +62,8 @@ class MicrodataToWikidataConverter {
 	}
 
 	public function toWikidata( $title ) {
-		$microdata = ( new MicrodataPhp( [
-			'url' => 'https://fr.wikisource.org/wiki/' . $this->wfUrlencode( $title )
-		] ) )->obj();
+		$url = 'https://fr.wikisource.org/wiki/' . $this->wfUrlencode( $title );
+		$microdata = ( new MicrodataPhp( [ 'url' => $url ] ) )->obj();
 
 		$entitiesById = [ null => (object)[ 'properties' => [] ] ];
 		foreach ( $microdata->items as $item ) {

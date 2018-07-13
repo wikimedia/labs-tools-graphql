@@ -16,7 +16,7 @@ if ( !array_key_exists( 'title', $_GET ) ) {
 	exit();
 }
 
-$title = htmlspecialchars( $_GET['title'], ENT_QUOTES, 'UTF-8' );
+$title = $_GET['title'];
 header( 'Content-Type: application/json' );
 print json_encode(
 	( new MicrodataToWikidataConverter() )->toWikidata( $title ),
