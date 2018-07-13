@@ -104,7 +104,7 @@ class WikibaseRegistry {
 						$after = self::getArgSafe( $args, 'after' );
 						$first = self::getArgSafe( $args, 'first' );
 
-						$offset = ArrayConnection::getOffsetWidthDefault( $after, 0 );
+						$offset = ArrayConnection::getOffsetWithDefault( $after, 0 );
 						$limit = $first === null
 							? self::MAX_QUERY_SIZE
 							: min( self::MAX_QUERY_SIZE, $first );
