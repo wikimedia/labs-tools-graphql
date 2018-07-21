@@ -13,4 +13,6 @@ $server = new StandardServer( [
 	'schema' => WikibaseRegistry::newForWikidata()->schema(),
 	'debug' => Debug::INCLUDE_DEBUG_MESSAGE | Debug::INCLUDE_TRACE
 ] );
+
+header( 'Access-Control-Allow-Origin: *' );
 $server->handleRequest();
