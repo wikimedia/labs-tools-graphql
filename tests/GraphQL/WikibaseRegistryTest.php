@@ -10,5 +10,6 @@ use PHPUnit\Framework\TestCase;
 class WikibaseRegistryTest extends TestCase {
 	public function testSchemaValidity() {
 		WikibaseRegistry::newForWikidata()->schema()->assertValid();
+		$this->assertTrue( true );
 	}
 }

@@ -7,22 +7,22 @@
     }
   },
   "require": {
-    "php": ">=5.5.9",
+    "php": ">=5.6.33",
     "addwiki/mediawiki-api": "~0.6",
     "addwiki/wikibase-api": "~0.7",
     "data-values/data-values": "~1.0|~2.0",
     "data-values/common": "~0.4",
-    "data-values/geo": "~3.0",
+    "data-values/geo": "~3.0|~4.0",
     "data-values/number": "~0.10.0",
     "data-values/time": "~0.8",
     "linclark/microdata-php": "~2.0",
-    "webonyx/graphql-php": "~0.11.5",
+    "webonyx/graphql-php": "~0.12.0",
     "ivome/graphql-relay-php": "~0.5.0"
   },
   "require-dev": {
-    "mediawiki/mediawiki-codesniffer": "~19.0|~20.0",
+    "mediawiki/mediawiki-codesniffer": "~19.0|~21.0",
     "mediawiki/minus-x": "~0.3",
-    "phpunit/phpunit": "~4.0|~5.0"
+    "phpunit/phpunit": "~5.0|~6.0|~7.0"
   },
   "scripts": {
     "test": [
