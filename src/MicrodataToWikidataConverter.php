@@ -161,9 +161,9 @@ class MicrodataToWikidataConverter {
 	private function addItemRelation( $entity, $item, $schemaRelation, $wdProperty, $wdClass = null ) {
 		if ( array_key_exists( $schemaRelation, $entity->properties ) ) {
 			foreach ( $entity->properties[$schemaRelation] as $childEntity ) {
-				$authorItemId = $this->getItemIdForEntity( $childEntity, $wdClass );
-				if ( $authorItemId !== null ) {
-					$this->addStatement( $item, new EntityIdValue( $authorItemId ), $wdProperty );
+				$valueItemId = $this->getItemIdForEntity( $childEntity, $wdClass );
+				if ( $valueItemId !== null ) {
+					$this->addStatement( $item, new EntityIdValue( $valueItemId ), $wdProperty );
 				}
 			}
 		}
