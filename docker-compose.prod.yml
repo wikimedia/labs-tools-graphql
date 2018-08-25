@@ -1,0 +1,11 @@
+version: '3'
+services:
+  web:
+    restart: always
+    networks:
+       - default
+       - ingress
+networks:
+  ingress:
+    external:
+      name: ingress

@@ -1,0 +1,17 @@
+{
+  "extends": [
+    "airbnb",
+    "wikimedia"
+  ],
+  "env": {
+		"node": true,
+    "jest": true
+  },
+  "rules": {
+    "one-var": ["off"],
+		"no-console": ["off"],
+		"react/jsx-filename-extension": ["off"],
+		"react/jsx-indent": ["error", "tab"],
+		"react/jsx-indent-props": ["error", "tab"]
+  }
+}

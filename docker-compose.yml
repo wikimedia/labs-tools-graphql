@@ -1,0 +1,7 @@
+version: '3'
+services:
+  web:
+    build: ./
+    image: wikimedia/graphql
+    env_file:
+      - .env

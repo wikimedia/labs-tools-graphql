@@ -1,0 +1,37 @@
+{
+  "name": "@wikimedia/graphql",
+  "description": "GraphQL Query Service for Wikimedia",
+  "scripts": {
+    "postinstall": "next build",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gerrit.wikimedia.org/r/labs/tools/graphql"
+  },
+  "license": "GPL-2.0-or-later",
+  "devDependencies": {
+    "eslint": "^5.2.0",
+    "eslint-config-airbnb": "^17.0.0",
+    "eslint-config-wikimedia": "^0.6.0",
+    "eslint-plugin-import": "^2.13.0",
+    "eslint-plugin-jsx-a11y": "^6.1.1",
+    "eslint-plugin-react": "^7.10.0",
+    "jest": "^23.4.2"
+  },
+  "dependencies": {
+    "@zeit/next-css": "^0.2.0",
+    "accept": "^3.0.2",
+    "apollo-datasource-rest": "^0.1.5",
+    "apollo-server-core": "^2.0.4",
+    "apollo-server-hapi": "^2.0.4",
+    "graphiql": "^0.11.11",
+    "graphql": "^0.13.2",
+    "hapi": "^17.5.3",
+    "next": "^6.1.1",
+    "node-fetch": "^2.2.0",
+    "react": "^16.4.2",
+    "react-dom": "^16.4.2",
+    "save": "^2.3.2"
+  }
+}
