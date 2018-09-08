@@ -7,7 +7,7 @@ class REST extends RESTDataSource {
 	}
 
 	async getPageSummary( title ) {
-		return this.get( `page/summary/${title.replace( / /g, '_' )}` );
+		return this.get( `page/summary/${encodeURIComponent( title.replace( / /g, '_' ) )}` );
 	}
 }
 
