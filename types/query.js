@@ -60,16 +60,19 @@ const resolvers = Promise.resolve().then( async () => {
 						) );
 					}
 
-					return sites.filter( site => (
+					const preferedSites = sites.filter( site => (
 						// Remove irelevant sites.
-						site.code === code
+						site.code === code && acceptLanguages.includes( site.languageCode )
 					) ).sort( ( a, b ) => (
-						// Sort by number of breaks in the language code.
-						b.languageCode.split( '-' ).length - a.languageCode.split( '-' ).length
-					) ).find( site => (
-						// Find the tag (starting with the most specific tag)
-						!!acceptLanguages.find( tag => tag === site.languageCode )
+						// Sort by preference.
+						acceptLanguages.findIndex(
+							tag => tag === a.languageCode
+						) - acceptLanguages.findIndex(
+							tag => tag === b.languageCode
+						)
 					) );
+
+					return preferedSites.length > 0 ? preferedSites[ 0 ] : undefined;
 				}
 			};
 		}
@@ -91,13 +94,19 @@ const resolvers = Promise.resolve().then( async () => {
 					return languages.find( l => l.code === code );
 				}
 
-				return languages.sort( ( a, b ) => (
+				const preferedLanguages = languages.filter( lang => (
+					acceptLanguages.includes( lang.code )
+				) ).sort( ( a, b ) => (
 					// Sort by number of breaks in the language code.
-					b.code.split( '-' ).length - a.code.split( '-' ).length
-				) ).find( lang => (
-					// Find the lanugage (starting with the most specific tag)
-					!!acceptLanguages.find( tag => tag === lang.code )
+					// Sort by preference.
+					acceptLanguages.findIndex(
+						tag => tag === a.code
+					) - acceptLanguages.findIndex(
+						tag => tag === b.code
+					)
 				) );
+
+				return preferedLanguages.length > 0 ? preferedLanguages[ 0 ] : undefined;
 			},
 			languages: () => languages
 		}
