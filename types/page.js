@@ -20,7 +20,6 @@ const schema = gql`
 		originalimage: PageSummaryImage
 		lang: String!
 		dir: String!
-		# @TODO Make a Scalar value for dates so they can be formatted!
 		timestamp: String!
 		description: String!
 		coordinates: PageSummaryCordinates

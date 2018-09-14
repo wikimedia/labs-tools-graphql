@@ -18,7 +18,10 @@ const schema = Promise.resolve().then( async () => {
 	const siteTypes = [ ...codes.entries() ].map( ( [ code, options ] ) => {
 		if ( options.multi ) {
 			return `
-				${code} (language: ID!): Site
+				${code} (
+					"If no language is specified, the language tag from the 'Accept-Language' header will be used."
+					language: ID
+				): Site
 			`;
 		}
 
@@ -31,7 +34,11 @@ const schema = Promise.resolve().then( async () => {
 		type Query {
 			${siteTypes.join( '' )}
 			sites: [Site]
-			language (code: ID!): Language
+
+			language (
+				"If no code is specified, the language tag from the 'Accept-Language' header will be used."
+				code: ID
+			): Language
 			languages: [Language]
 		}
 	`;
@@ -46,14 +53,12 @@ const resolvers = Promise.resolve().then( async () => {
 		if ( multi ) {
 			return {
 				...acc,
-				[ key ]: ( obj, { language } ) => {
-					// Order the tags by most specific to least specific
-					const tags = language.toLowerCase().split( '-' ).reduce( ( acc, curr ) => (
-						[
-							...acc,
-							acc.length > 0 ? `${acc.join( '-' )}-${curr}` : curr
-						]
-					), [] ).reverse();
+				[ key ]: ( obj, { language }, { languages: acceptLanguages } ) => {
+					if ( language ) {
+						return sites.find( site => (
+							site.code === code && site.languageCode === language
+						) );
+					}
 
 					return sites.filter( site => (
 						// Remove irelevant sites.
@@ -63,7 +68,7 @@ const resolvers = Promise.resolve().then( async () => {
 						b.languageCode.split( '-' ).length - a.languageCode.split( '-' ).length
 					) ).find( site => (
 						// Find the tag (starting with the most specific tag)
-						!!tags.find( tag => tag === site.languageCode )
+						!!acceptLanguages.find( tag => tag === site.languageCode )
 					) );
 				}
 			};
@@ -81,7 +86,19 @@ const resolvers = Promise.resolve().then( async () => {
 		Query: {
 			...siteResolvers,
 			sites: () => sites,
-			language: ( obj, { code } ) => languages.find( l => l.code === code ),
+			language: ( obj, { code }, { languages: acceptLanguages } ) => {
+				if ( code ) {
+					return languages.find( l => l.code === code );
+				}
+
+				return languages.sort( ( a, b ) => (
+					// Sort by number of breaks in the language code.
+					b.code.split( '-' ).length - a.code.split( '-' ).length
+				) ).find( lang => (
+					// Find the lanugage (starting with the most specific tag)
+					!!acceptLanguages.find( tag => tag === lang.code )
+				) );
+			},
 			languages: () => languages
 		}
 	};

@@ -48,7 +48,29 @@ async function main() {
 			), {} );
 		},
 		playground: false,
-		introspection: true
+		introspection: true,
+		context: ( { request } ) => {
+			const languages = Accept.languages( request.headers[ 'accept-language' ] ).reduce( ( tags, tag ) => (
+				[
+					...tags,
+					// Add the non-region tags to the list of tags. Keep the more specific
+					// code at the top of the list. This implies that if the user specifies
+					// only 'en-US', they would also accept 'en'.
+					...tag.toLowerCase().split( '-' ).reduce( ( acc, curr ) => (
+						[
+							...acc,
+							acc.length > 0 ? `${acc.join( '-' )}-${curr}` : curr
+						]
+					), [] ).reverse()
+				]
+			), [] );
+
+			// add the languages to the context.
+			return {
+				languages,
+				acceptLanguage: request.headers[ 'accept-language' ]
+			};
+		}
 	} );
 
 	const server = new Server( {

@@ -17,7 +17,7 @@ const formatLanguage = ( { code, name, localname, dir } ) => ( {
 
 // Staticlly cache the site data to the request. The server will need to be
 // restarted to refresh this list!
-const sitesLanguages = Promise.resolve().then(async () => {
+const sitesLanguages = Promise.resolve().then( async () => {
 	const url = 'https://meta.wikimedia.org/w/api.php?action=sitematrix&format=json&formatversion=2';
 	const response = await fetch( url );
 	const data = await response.json();
