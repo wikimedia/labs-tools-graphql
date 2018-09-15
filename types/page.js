@@ -31,8 +31,8 @@ const schema = gql`
 
 const resolvers = {
 	Page: {
-		summary: async ( { title, __site }, args, { dataSources } ) => (
-			dataSources[ __site.dbname ].getPageSummary( title )
+		summary: async ( { title, __site: { dbname } }, args, { dataSources } ) => (
+			dataSources[ dbname ].getPageSummary( title )
 		)
 	}
 };

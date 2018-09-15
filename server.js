@@ -2,11 +2,12 @@ const { ApolloServer } = require( 'apollo-server-hapi' );
 const { Server } = require( 'hapi' );
 const Accept = require( 'accept' );
 const next = require( 'next' );
-const REST = require( './sources/rest' );
+const API = require( './sources/api' );
 const Query = require( './types/query' );
 const Site = require( './types/site' );
 const Page = require( './types/page' );
 const Language = require( './types/language' );
+const Entity = require( './types/entity' );
 const sitematrix = require( './utils/sitematrix' );
 const { pathWrapper, defaultHandlerWrapper, nextHandlerWrapper } = require( './next-wrapper' );
 
@@ -15,7 +16,8 @@ async function main() {
 		Language.schema,
 		Query.schema,
 		Site.schema,
-		Page.schema
+		Page.schema,
+		Entity.schema
 	] );
 
 	// Resolvers define the technique for fetching the types in the
@@ -24,7 +26,8 @@ async function main() {
 		...await Query.resolvers,
 		...await Site.resolvers,
 		...await Language.resolvers,
-		...await Page.resolvers
+		...await Page.resolvers,
+		...await Entity.resolvers
 	};
 
 	const dev = process.env.NODE_ENV !== 'production';
@@ -40,10 +43,10 @@ async function main() {
 		typeDefs,
 		resolvers,
 		dataSources: () => {
-			return sites.reduce( ( acc, curr ) => (
+			return sites.reduce( ( acc, { dbname, url } ) => (
 				{
 					...acc,
-					[ curr.dbname ]: new REST( curr.url )
+					[ dbname ]: new API( url )
 				}
 			), {} );
 		},

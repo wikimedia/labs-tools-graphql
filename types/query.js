@@ -21,13 +21,21 @@ const schema = Promise.resolve().then( async () => {
 				${code} (
 					"If no language is specified, the language tag from the 'Accept-Language' header will be used."
 					language: ID
-				): Site
+				): MediaWikiSite
 			`;
 		}
 
-		return `
-			${code}: Site
-		`;
+		// @TODO Use the __resolveType method.
+		switch ( code ) {
+			case 'wikidata':
+				return `
+					${code}: WikibaseSite
+				`;
+			default:
+				return `
+					${code}: MediaWikiSite
+				`;
+		}
 	} );
 
 	return gql`
