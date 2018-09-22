@@ -1,38 +1,26 @@
 const { gql } = require( 'apollo-server-hapi' );
 
 const schema = gql`
-	type PageSummaryCordinates {
-		lat: Int!
-		long: Int!
-	}
-	type PageSummaryImage {
-		source: String!
-		width: Int!
-		height: Int!
-	}
-	type PageSummary {
-		title: String!
-		displaytitle: String!
-		pageid: Int!
-		extract: String!
-		extract_html: String!
-		thumbnail: PageSummaryImage
-		originalimage: PageSummaryImage
-		lang: String!
-		dir: String!
-		timestamp: String!
-		description: String!
-		coordinates: PageSummaryCordinates
+	enum PageExtractSectionFormat {
+		plain
+		raw
+		wiki
 	}
 	type Page {
-		summary: PageSummary
+		extract(
+			chars: Int
+			sentences: Int
+			intro: Boolean,
+			plaintext: Boolean,
+			sectionformat: PageExtractSectionFormat
+		): String
 	}
 `;
 
 const resolvers = {
 	Page: {
-		summary: async ( { title, __site: { dbname } }, args, { dataSources } ) => (
-			dataSources[ dbname ].getPageSummary( title )
+		extract: async ( { title, __site: { dbname } }, args, { dataSources } ) => (
+			dataSources[ dbname ].getPageExtract( { title }, args )
 		)
 	}
 };

@@ -70,9 +70,10 @@ const resolvers = {
 	WikibaseSite: {
 		language: languageResolver,
 		page: pageResolver,
-		entity: async ( { dbname }, { id }, { dataSources } ) => (
-			dataSources[ dbname ].getEntity( id )
-		)
+		entity: ( site, { id } ) => ( {
+			__site: site,
+			id
+		} )
 	}
 };
 
