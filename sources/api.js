@@ -74,9 +74,7 @@ class API extends RESTDataSource {
 					if ( title ) {
 						uniqueProps = {
 							...uniqueProps,
-							titles: [ ...new Set( keys.map( ( { title } ) => title ) ) ].map(
-								title => encodeURIComponent( title )
-							).join( '|' )
+							titles: [ ...new Set( keys.map( ( { title } ) => title ) ) ].join( '|' )
 						};
 					}
 
