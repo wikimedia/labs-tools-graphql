@@ -2,6 +2,7 @@
   "name": "@wikimedia/graphql",
   "description": "GraphQL Query Service for Wikimedia",
   "scripts": {
+    "build": "next build",
     "test": "eslint . && jest"
   },
   "repository": {
