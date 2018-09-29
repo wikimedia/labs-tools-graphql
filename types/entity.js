@@ -36,7 +36,7 @@ const schema = Promise.resolve().then( async () => {
 			language (
 				"If no code is specified, the language tag from the 'Accept-Language' header will be used."
 				code: ID
-			): Language
+			): SiteLinkLanguage
 			languages: [SiteLinkLanguage]!
 		}
 		type SiteLinkLanguage {
