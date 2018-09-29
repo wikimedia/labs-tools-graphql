@@ -2,8 +2,7 @@
   "name": "@wikimedia/graphql",
   "description": "GraphQL Query Service for Wikimedia",
   "scripts": {
-    "postinstall": "next build",
-    "start": "node server.js"
+    "test": "eslint . && jest"
   },
   "repository": {
     "type": "git",
@@ -11,6 +10,8 @@
   },
   "license": "GPL-2.0-or-later",
   "devDependencies": {
+    "babel-core": "^7.0.0-bridge.0",
+    "babel-jest": "^23.6.0",
     "eslint": "^5.2.0",
     "eslint-config-airbnb": "^17.0.0",
     "eslint-config-wikimedia": "^0.6.0",
@@ -34,5 +35,23 @@
     "react": "^16.4.2",
     "react-dom": "^16.4.2",
     "save": "^2.3.2"
+  },
+  "jest": {
+		"testPathIgnorePatterns": [
+			"<rootDir>/.next/",
+			"<rootDir>/node_modules/"
+		],
+    "transform": {
+      "^.+\\.jsx?$": "babel-jest"
+    },
+    "collectCoverage": true,
+    "coverageThreshold": {
+      "global": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      }
+    }
   }
 }

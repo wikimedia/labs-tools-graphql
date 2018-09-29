@@ -23,8 +23,9 @@ const sitesLanguages = Promise.resolve().then( async () => {
 	const data = await response.json();
 
 	if ( !response.ok ) {
-		console.log( data );
-		throw Error( 'Could not retrieve sites!' );
+		const error = new Error( 'Could not retrieve sites!' );
+		error.data = data;
+		throw error;
 	}
 
 	// Get a map of all the lanugages.
