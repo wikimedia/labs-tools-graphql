@@ -1,0 +1,8 @@
+{
+  "watch": [
+		"resolvers/**/*.js",
+		"sources/**/*.js",
+		"types/**/*.js",
+		"utils/**/*.js"
+	]
+}

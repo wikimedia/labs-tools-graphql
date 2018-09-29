@@ -1,36 +1,84 @@
 const { gql } = require( 'apollo-server-hapi' );
+const sitematrix = require( '../utils/sitematrix' );
+const getCodes = require( '../utils/codes' );
+const {
+	site: siteResolver,
+	sites: sitesResolver,
+	resolvers: siteResolvers
+} = require( '../resolvers/site' );
+const languageResolver = require( '../resolvers/language' );
 
-// @TODO Figure out if labels are on every entity!
-const schema = gql`
-	type ItemEntity implements Entity {
-		# Entity
-		pageid: Int!
-		ns: Int!
-		title: String!
-		lastrevid: Int!
-		modified: String!
-		type: String!
-		id: ID!
-		# EntityLabel
-		label(language: String): EntityLabel
-		labels: [EntityLabel]
-	}
-	type EntityLabel {
-		language: String!
-		value: String!
-	}
-	interface Entity {
-		pageid: Int!
-		ns: Int!
-		title: String!
-		lastrevid: Int!
-		modified: String!
-		type: String!
-		id: ID!
-		label(language: String): EntityLabel
-		labels: [EntityLabel]
-	}
-`;
+const schema = Promise.resolve().then( async () => {
+	const { sites } = await sitematrix;
+
+	const codes = getCodes( sites );
+
+	const siteTypes = [ ...codes.entries() ].map( ( [ code, options ] ) => {
+		if ( options.multi ) {
+			return `
+				${code} (
+					"If no language is specified, the language tag from the 'Accept-Language' header will be used."
+					language: ID
+				): SiteLink
+			`;
+		}
+
+		return `
+			${code}: SiteLink
+		`;
+	} );
+
+	return gql`
+		type SiteLinkMap {
+			${siteTypes.join( '' )}
+			sites: [SiteLink]!
+
+			language (
+				"If no code is specified, the language tag from the 'Accept-Language' header will be used."
+				code: ID
+			): Language
+			languages: [SiteLinkLanguage]!
+		}
+		type SiteLinkLanguage {
+			# Language. GraphQL doesn't support type inheritence.
+			code: ID!
+			name: String!
+			localname: String!
+			dir: String!
+			site(code: ID!): SiteLink
+			sites: [SiteLink]!
+		}
+		type EntityLabel {
+			language: String!
+			value: String!
+		}
+		type SiteLink {
+			# Site (sans 'page' which is different). GraphQL doesn't support type inheritence.
+			dbname: ID!
+			url: String!
+			code: String!
+			sitename: String!
+			closed: Boolean!
+			fishbowl: Boolean!
+			private: Boolean!
+			language: Language
+			# Page with no argument since it's provided by the sitelink.
+			page: Page
+		}
+		type Entity {
+			pageid: Int!
+			ns: Int!
+			title: String!
+			lastrevid: Int!
+			modified: String!
+			type: String!
+			id: ID!
+			label(language: String): EntityLabel
+			labels: [EntityLabel]!
+			sitelinks: SiteLinkMap
+		}
+	`;
+} );
 
 const infoResolver = prop => async ( { id, __site: { dbname } }, args, { dataSources } ) => {
 	const entity = await dataSources[ dbname ].getEntity( id, 'info' );
@@ -76,36 +124,93 @@ const labelsResolvers = async ( { id, __site: { dbname } }, args, { dataSources 
 	const entity = await dataSources[ dbname ].getEntity( id, 'labels', '*' );
 
 	if ( !( 'labels' in entity ) ) {
-		return null;
+		return [];
 	}
 
 	return Object.values( entity.labels );
 };
 
-const entityTypeResolver = async ( { id } ) => {
-	if ( id.startsWith( 'Q' ) ) {
-		return 'ItemEntity';
+const resolveSiteLink = callback => async ( sitelinks, args, info, context ) => {
+	const site = callback( sitelinks, args, info, context );
+
+	if ( !site ) {
+		return null;
 	}
 
-	return null;
+	if ( !( site.dbname in sitelinks ) ) {
+		return null;
+	}
+
+	return {
+		...site,
+		__sitelink: sitelinks[ site.dbname ]
+	};
 };
 
-const resolvers = {
-	Entity: {
-		__resolveType: entityTypeResolver
-	},
-	ItemEntity: {
-		pageid: infoResolver( 'pageid' ),
-		ns: infoResolver( 'ns' ),
-		title: infoResolver( 'title' ),
-		lastrevid: infoResolver( 'lastrevid' ),
-		modified: infoResolver( 'modified' ),
-		type: infoResolver( 'type' ),
-		id: infoResolver( 'id' ),
-		label: labelResolver,
-		labels: labelsResolvers
+const resolveSiteLinks = callback => async ( sitelinks, args, info, context ) => (
+	callback( sitelinks, args, info, context ).map( ( site ) => {
+		if ( !( site.dbname in sitelinks ) ) {
+			return null;
+		}
+
+		return {
+			...site,
+			__sitelink: sitelinks[ site.dbname ]
+		};
+	} )
+);
+
+const resolvers = Promise.resolve().then( async () => {
+	const { sites, languages } = await sitematrix;
+
+	const siteResolverMap = await siteResolvers();
+	for ( const key in siteResolverMap ) {
+		siteResolverMap[ key ] = resolveSiteLink( siteResolverMap[ key ] );
 	}
-};
+
+	return {
+		SiteLink: {
+			page: ( site ) => {
+				const { __sitelink: sitelink } = site;
+
+				if ( !( 'title' in sitelink ) ) {
+					return null;
+				}
+
+				return {
+					__site: site,
+					title: sitelink.title
+				};
+			}
+		},
+		SiteLinkMap: {
+			...siteResolverMap,
+			sites: resolveSiteLinks( () => sites ),
+			language: languageResolver,
+			languages: () => languages
+		},
+		SiteLinkLanguage: {
+			site: resolveSiteLink( siteResolver ),
+			sites: resolveSiteLinks( sitesResolver )
+		},
+		Entity: {
+			pageid: infoResolver( 'pageid' ),
+			ns: infoResolver( 'ns' ),
+			title: infoResolver( 'title' ),
+			lastrevid: infoResolver( 'lastrevid' ),
+			modified: infoResolver( 'modified' ),
+			type: infoResolver( 'type' ),
+			id: infoResolver( 'id' ),
+			label: labelResolver,
+			labels: labelsResolvers,
+			sitelinks: async ( { id, __site: { dbname } }, args, { dataSources } ) => {
+				const entity = await dataSources[ dbname ].getEntity( id, 'sitelinks' );
+
+				return entity.sitelinks;
+			}
+		}
+	};
+} );
 
 module.exports = {
 	schema,

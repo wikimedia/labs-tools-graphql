@@ -1,5 +1,5 @@
 const { gql } = require( 'apollo-server-hapi' );
-const sitematrix = require( '../utils/sitematrix' );
+const { site: siteResolver, sites: sitesResolver } = require( '../resolvers/site' );
 
 const schema = gql`
 	type Language {
@@ -8,24 +8,14 @@ const schema = gql`
 		localname: String!
 		dir: String!
 		site(code: ID!): Site
-		sites: [Site]
+		sites: [Site]!
 	}
 `;
 
 const resolvers = {
 	Language: {
-		site: async ( language, { code } ) => {
-			const { sites } = await sitematrix;
-
-			return sites.find( site => (
-				site.code === code && site.languageCode === language.code
-			) );
-		},
-		sites: async ( language ) => {
-			const { sites } = await sitematrix;
-
-			return sites.filter( site => site.languageCode === language.code );
-		}
+		site: siteResolver,
+		sites: sitesResolver
 	}
 };
 

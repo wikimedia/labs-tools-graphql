@@ -1,5 +1,6 @@
 const { gql } = require( 'apollo-server-hapi' );
 const sitematrix = require( '../utils/sitematrix' );
+const { type: siteTypeResolver } = require( '../resolvers/site' );
 
 const schema = gql`
 	interface Site {
@@ -54,14 +55,7 @@ const pageResolver = ( site, { title } ) => ( {
 
 const resolvers = {
 	Site: {
-		__resolveType: ( { code } ) => {
-			switch ( code ) {
-				case 'wikidata':
-					return 'WikibaseSite';
-				default:
-					return 'MediaWikiSite';
-			}
-		}
+		__resolveType: siteTypeResolver
 	},
 	MediaWikiSite: {
 		language: languageResolver,

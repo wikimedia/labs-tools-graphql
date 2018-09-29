@@ -3,6 +3,6 @@ services:
   web:
     volumes:
       - ./:/app:cached
-    command: 'npm start'
+    command: './bin/dev'
     ports:
       - 8888:80

@@ -18,7 +18,8 @@
     "eslint-plugin-import": "^2.13.0",
     "eslint-plugin-jsx-a11y": "^6.1.1",
     "eslint-plugin-react": "^7.10.0",
-    "jest": "^23.4.2"
+    "jest": "^23.4.2",
+    "nodemon": "^1.18.4"
   },
   "dependencies": {
     "@zeit/next-css": "^0.2.0",
@@ -37,10 +38,10 @@
     "save": "^2.3.2"
   },
   "jest": {
-		"testPathIgnorePatterns": [
-			"<rootDir>/.next/",
-			"<rootDir>/node_modules/"
-		],
+    "testPathIgnorePatterns": [
+      "<rootDir>/.next/",
+      "<rootDir>/node_modules/"
+    ],
     "transform": {
       "^.+\\.jsx?$": "babel-jest"
     },
