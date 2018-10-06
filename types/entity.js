@@ -1,11 +1,7 @@
 const { gql } = require( 'apollo-server-hapi' );
 const sitematrix = require( '../utils/sitematrix' );
 const getCodes = require( '../utils/codes' );
-const {
-	site: siteResolver,
-	sites: sitesResolver,
-	resolvers: siteResolvers
-} = require( '../resolvers/site' );
+const { resolvers: siteResolvers } = require( '../resolvers/site' );
 const languageResolver = require( '../resolvers/language' );
 
 const schema = Promise.resolve().then( async () => {
@@ -147,8 +143,9 @@ const resolveSiteLink = callback => async ( sitelinks, args, info, context ) => 
 	};
 };
 
+// @TODO Something is broken when you query all of the sites from a language!
 const resolveSiteLinks = callback => async ( sitelinks, args, info, context ) => (
-	callback( sitelinks, args, info, context ).map( ( site ) => {
+	( await callback( sitelinks, args, info, context ) ).map( ( site ) => {
 		if ( !( site.dbname in sitelinks ) ) {
 			return null;
 		}
@@ -157,11 +154,46 @@ const resolveSiteLinks = callback => async ( sitelinks, args, info, context ) =>
 			...site,
 			__sitelink: sitelinks[ site.dbname ]
 		};
-	} )
+	} ).filter( data => !!data )
 );
 
+const siteLinkLanguage = ( sitelinks, language, sites ) => {
+	const langSiteLinks = sites.filter( site => (
+		site.languageCode === language.code && ( site.dbname in sitelinks )
+	) );
+
+	if ( langSiteLinks.length === 0 ) {
+		return null;
+	}
+
+	return {
+		...language,
+		sites: langSiteLinks.map( site => ( {
+			...site,
+			__sitelink: sitelinks[ site.dbname ]
+		} ) )
+	};
+};
+
+const resolveLanguageSite = async ( sitelinks, args, info, context ) => {
+	const [ language, { sites } ] = await Promise.all( [
+		languageResolver( sitelinks, args, info, context ),
+		sitematrix
+	] );
+
+	return siteLinkLanguage( sitelinks, language, sites );
+};
+
+const resolveLanguageSites = async ( sitelinks ) => {
+	const { languages, sites } = await sitematrix;
+
+	return languages.map(
+		language => siteLinkLanguage( sitelinks, language, sites )
+	).filter( language => !!language );
+};
+
 const resolvers = Promise.resolve().then( async () => {
-	const { sites, languages } = await sitematrix;
+	const { sites } = await sitematrix;
 
 	const siteResolverMap = await siteResolvers();
 	for ( const key in siteResolverMap ) {
@@ -186,12 +218,11 @@ const resolvers = Promise.resolve().then( async () => {
 		SiteLinkMap: {
 			...siteResolverMap,
 			sites: resolveSiteLinks( () => sites ),
-			language: languageResolver,
-			languages: () => languages
+			language: resolveLanguageSite,
+			languages: resolveLanguageSites
 		},
 		SiteLinkLanguage: {
-			site: resolveSiteLink( siteResolver ),
-			sites: resolveSiteLinks( sitesResolver )
+			site: ( language, { code } ) => language.sites.find( site => site.code === code )
 		},
 		Entity: {
 			pageid: infoResolver( 'pageid' ),

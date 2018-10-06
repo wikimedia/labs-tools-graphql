@@ -2,7 +2,7 @@ const { ApolloServer } = require( 'apollo-server-hapi' );
 const { Server } = require( 'hapi' );
 const Accept = require( 'accept' );
 const next = require( 'next' );
-const API = require( './sources/api' );
+const Action = require( './sources/action' );
 const Query = require( './types/query' );
 const Site = require( './types/site' );
 const Page = require( './types/page' );
@@ -46,7 +46,7 @@ async function main() {
 			return sites.reduce( ( acc, { dbname, url } ) => (
 				{
 					...acc,
-					[ dbname ]: new API( url )
+					[ dbname ]: new Action( url )
 				}
 			), {} );
 		},
