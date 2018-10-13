@@ -62,15 +62,28 @@ const schema = Promise.resolve().then( async () => {
 			page: Page
 		}
 		type Entity {
-			pageid: Int!
-			ns: Int!
-			title: String!
-			lastrevid: Int!
-			modified: String!
-			type: String!
-			id: ID!
-			label(language: String): EntityLabel
+			pageid: Int
+			ns: Int
+			title: String
+			lastrevid: Int
+			modified: String
+			type: String
+			id: ID
+			label (
+				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
+				language: String
+			): EntityLabel
 			labels: [EntityLabel]!
+			description (
+				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
+				language: String
+			): EntityLabel
+			descriptions: [EntityLabel]!
+			alias (
+				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
+				language: String
+			): [EntityLabel]!
+			aliases: [EntityLabel]!
 			sitelinks: SiteLinkMap
 		}
 	`;
@@ -86,30 +99,47 @@ const infoResolver = prop => async ( { id, __site: { dbname } }, args, { dataSou
 	return entity[ prop ];
 };
 
-const labelResolver = async (
+const multiLabelReducer = labels => Object.values( labels ).reduce( ( acc, label ) => {
+	if ( !Array.isArray( label ) ) {
+		return [
+			...acc,
+			label
+		];
+	}
+
+	return [
+		...acc,
+		...label
+	];
+}, [] );
+
+const labelResolver = ( prop, multi = false ) => async (
 	{ id, __site: { dbname } },
 	{ language },
 	{ dataSources, languages: acceptLanguages }
 ) => {
-	const entity = await dataSources[ dbname ].getEntity( id, 'labels', language || acceptLanguages );
+	const entity = await dataSources[ dbname ].getEntity( id, prop, language || acceptLanguages );
 
 	if ( !entity ) {
-		return null;
+		return multi ? [] : null;
 	}
 
-	if ( !( 'labels' in entity ) ) {
-		return null;
+	if ( !( prop in entity ) ) {
+		return multi ? [] : null;
 	}
 
 	if ( language ) {
-		if ( language in entity.labels ) {
-			return entity.labels[ language ];
+		if ( language in entity[ prop ] ) {
+			return entity[ prop ][ language ];
 		}
 
-		return null;
+		return multi ? [] : null;
 	}
 
-	const preferedLabels = Object.values( entity.labels ).filter( label => (
+	// Property value is either an object, or an array of objects, reduce!
+	let labels = multiLabelReducer( entity[ prop ] );
+
+	const preferedLabels = labels.filter( label => (
 		// Remove irelevant sites.
 		acceptLanguages.includes( label.language )
 	) ).sort( ( a, b ) => (
@@ -121,21 +151,32 @@ const labelResolver = async (
 		)
 	) );
 
-	return preferedLabels.length > 0 ? preferedLabels[ 0 ] : undefined;
+	if ( preferedLabels.length === 0 ) {
+		return multi ? [] : null;
+	}
+
+	// Return the first item from the list.
+	if ( !multi ) {
+		return preferedLabels[ 0 ];
+	}
+
+	// Return the top items from the list, but ensure they are all the same language.
+	const topLanguage = preferedLabels[ 0 ].language;
+	return preferedLabels.filter( label => label.language === topLanguage );
 };
 
-const labelsResolvers = async ( { id, __site: { dbname } }, args, { dataSources } ) => {
-	const entity = await dataSources[ dbname ].getEntity( id, 'labels', '*' );
+const labelsResolver = prop => async ( { id, __site: { dbname } }, args, { dataSources } ) => {
+	const entity = await dataSources[ dbname ].getEntity( id, prop, '*' );
 
 	if ( !entity ) {
 		return [];
 	}
 
-	if ( !( 'labels' in entity ) ) {
+	if ( !( prop in entity ) ) {
 		return [];
 	}
 
-	return Object.values( entity.labels );
+	return multiLabelReducer( entity[ prop ] );
 };
 
 const resolveSiteLink = callback => async ( sitelinks, args, info, context ) => {
@@ -243,8 +284,12 @@ const resolvers = Promise.resolve().then( async () => {
 			modified: infoResolver( 'modified' ),
 			type: infoResolver( 'type' ),
 			id: infoResolver( 'id' ),
-			label: labelResolver,
-			labels: labelsResolvers,
+			label: labelResolver( 'labels' ),
+			labels: labelsResolver( 'labels' ),
+			description: labelResolver( 'descriptions' ),
+			descriptions: labelsResolver( 'descriptions' ),
+			alias: labelResolver( 'aliases', true ),
+			aliases: labelsResolver( 'aliases' ),
 			sitelinks: async ( { id, __site: { dbname } }, args, { dataSources } ) => {
 				const entity = await dataSources[ dbname ].getEntity( id, 'sitelinks' );
 

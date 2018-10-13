@@ -7,9 +7,9 @@ const schema = gql`
 		wiki
 	}
 	type Page {
-		pageid: Int!
-		ns: Int!
-		title: String!
+		pageid: Int
+		ns: Int
+		title: String
 		extract(
 			chars: Int
 			sentences: Int
