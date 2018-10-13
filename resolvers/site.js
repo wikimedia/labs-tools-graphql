@@ -1,15 +1,6 @@
 const sitematrix = require( '../utils/sitematrix' );
 const getCodes = require( '../utils/codes' );
 
-const typeResolver = ( { code } ) => {
-	switch ( code ) {
-		case 'wikidata':
-			return 'WikibaseSite';
-		default:
-			return 'MediaWikiSite';
-	}
-};
-
 const siteResolvers = async () => {
 	const { sites } = await sitematrix;
 
@@ -53,7 +44,6 @@ const siteResolvers = async () => {
 };
 
 module.exports = {
-	type: typeResolver,
 	resolvers: siteResolvers,
 	sites: async ( language ) => {
 		const { sites } = await sitematrix;

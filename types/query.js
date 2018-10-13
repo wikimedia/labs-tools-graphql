@@ -1,6 +1,6 @@
 const { gql } = require( 'apollo-server-hapi' );
 const sitematrix = require( '../utils/sitematrix' );
-const { type: siteTypeResolver, resolvers: siteResolvers } = require( '../resolvers/site' );
+const { resolvers: siteResolvers } = require( '../resolvers/site' );
 const languageResolver = require( '../resolvers/language' );
 const getCodes = require( '../utils/codes' );
 
@@ -15,14 +15,12 @@ const schema = Promise.resolve().then( async () => {
 				${code} (
 					"If no language is specified, the language tag from the 'Accept-Language' header will be used."
 					language: ID
-				): MediaWikiSite
+				): Site
 			`;
 		}
 
-		const type = siteTypeResolver( { code } );
-
 		return `
-			${code}: ${type}
+			${code}: Site
 		`;
 	} );
 

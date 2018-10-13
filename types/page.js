@@ -7,6 +7,9 @@ const schema = gql`
 		wiki
 	}
 	type Page {
+		pageid: Int!
+		ns: Int!
+		title: String!
 		extract(
 			chars: Int
 			sentences: Int
@@ -17,10 +20,27 @@ const schema = gql`
 	}
 `;
 
+const idResolver = prop => async ( {
+	pageid: id,
+	title,
+	__site: { dbname }
+}, args, { dataSources } ) => {
+	const page = await dataSources[ dbname ].getPageIds( { id, title } );
+
+	if ( !page ) {
+		return null;
+	}
+
+	return page[ prop ];
+};
+
 const resolvers = {
 	Page: {
-		extract: async ( { title, __site: { dbname } }, args, { dataSources } ) => (
-			dataSources[ dbname ].getPageExtract( { title }, args )
+		pageid: idResolver( 'pageid' ),
+		ns: idResolver( 'ns' ),
+		title: idResolver( 'title' ),
+		extract: async ( { pageid: id, title, __site: { dbname } }, args, { dataSources } ) => (
+			dataSources[ dbname ].getPageExtract( { id, title }, args )
 		)
 	}
 };

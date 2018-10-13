@@ -79,6 +79,10 @@ const schema = Promise.resolve().then( async () => {
 const infoResolver = prop => async ( { id, __site: { dbname } }, args, { dataSources } ) => {
 	const entity = await dataSources[ dbname ].getEntity( id, 'info' );
 
+	if ( !entity ) {
+		return null;
+	}
+
 	return entity[ prop ];
 };
 
@@ -88,6 +92,10 @@ const labelResolver = async (
 	{ dataSources, languages: acceptLanguages }
 ) => {
 	const entity = await dataSources[ dbname ].getEntity( id, 'labels', language || acceptLanguages );
+
+	if ( !entity ) {
+		return null;
+	}
 
 	if ( !( 'labels' in entity ) ) {
 		return null;
@@ -119,6 +127,10 @@ const labelResolver = async (
 const labelsResolvers = async ( { id, __site: { dbname } }, args, { dataSources } ) => {
 	const entity = await dataSources[ dbname ].getEntity( id, 'labels', '*' );
 
+	if ( !entity ) {
+		return [];
+	}
+
 	if ( !( 'labels' in entity ) ) {
 		return [];
 	}
@@ -143,7 +155,6 @@ const resolveSiteLink = callback => async ( sitelinks, args, info, context ) => 
 	};
 };
 
-// @TODO Something is broken when you query all of the sites from a language!
 const resolveSiteLinks = callback => async ( sitelinks, args, info, context ) => (
 	( await callback( sitelinks, args, info, context ) ).map( ( site ) => {
 		if ( !( site.dbname in sitelinks ) ) {
@@ -236,6 +247,10 @@ const resolvers = Promise.resolve().then( async () => {
 			labels: labelsResolvers,
 			sitelinks: async ( { id, __site: { dbname } }, args, { dataSources } ) => {
 				const entity = await dataSources[ dbname ].getEntity( id, 'sitelinks' );
+
+				if ( !entity ) {
+					return {};
+				}
 
 				return entity.sitelinks;
 			}

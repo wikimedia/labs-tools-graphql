@@ -1,9 +1,8 @@
 const { gql } = require( 'apollo-server-hapi' );
 const sitematrix = require( '../utils/sitematrix' );
-const { type: siteTypeResolver } = require( '../resolvers/site' );
 
 const schema = gql`
-	interface Site {
+	type Site {
 		dbname: ID!
 		url: String!
 		code: String!
@@ -12,58 +11,23 @@ const schema = gql`
 		fishbowl: Boolean!
 		private: Boolean!
 		language: Language
-		page(title: String!): Page
-	}
-
-	# @TODO Split into multilingual and monolingual sites.
-	type MediaWikiSite implements Site {
-		dbname: ID!
-		url: String!
-		code: String!
-		sitename: String!
-		closed: Boolean!
-		fishbowl: Boolean!
-		private: Boolean!
-		language: Language
-		page(title: String!): Page
-	}
-
-	type WikibaseSite implements Site {
-		dbname: ID!
-		url: String!
-		code: String!
-		sitename: String!
-		closed: Boolean!
-		fishbowl: Boolean!
-		private: Boolean!
-		language: Language
-		page(title: String!): Page
+		page(id: Int, title: String): Page
 		entity(id: ID!): Entity
 	}
 `;
 
-const languageResolver = async ( site ) => {
-	const { languages } = await sitematrix;
-
-	return languages.find( lang => lang.code === site.languageCode );
-};
-
-const pageResolver = ( site, { title } ) => ( {
-	__site: site,
-	title
-} );
-
 const resolvers = {
 	Site: {
-		__resolveType: siteTypeResolver
-	},
-	MediaWikiSite: {
-		language: languageResolver,
-		page: pageResolver
-	},
-	WikibaseSite: {
-		language: languageResolver,
-		page: pageResolver,
+		language: async ( site ) => {
+			const { languages } = await sitematrix;
+
+			return languages.find( lang => lang.code === site.languageCode );
+		},
+		page: ( site, { id, title } ) => ( {
+			__site: site,
+			title,
+			pageid: id
+		} ),
 		entity: ( site, { id } ) => ( {
 			__site: site,
 			id

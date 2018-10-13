@@ -167,6 +167,20 @@ class Action extends RESTDataSource {
 		);
 	}
 
+	async getPageIds( { id, title } ) {
+		const data = await this.dataLoader.load( {
+			merge: {
+				pageids: id,
+				titles: title
+			},
+			unique: {
+				action: 'query'
+			}
+		} );
+
+		return this.getPageFromData( { id, title }, data );
+	}
+
 	/**
 	 * @param {object} page
 	 * @param {int} [page.id]
