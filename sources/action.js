@@ -1,6 +1,12 @@
 const { RESTDataSource } = require( 'apollo-datasource-rest' );
+const { ApolloError } = require( 'apollo-server-hapi' );
 const DataLoader = require( 'dataloader' );
 const get = require( 'lodash/get' );
+const omit = require( 'lodash/omit' );
+
+const mergeLimit = {
+	ids: 50
+};
 
 class Action extends RESTDataSource {
 	constructor( siteUrl ) {
@@ -48,6 +54,20 @@ class Action extends RESTDataSource {
 
 					if ( !!request.merge.titles && !!merge.pageids ) {
 						return false;
+					}
+
+					// If the merge key has execeeded the limit, continue to the next
+					// request.
+					if ( key.merge ) {
+						for ( const prop in key.merge ) {
+							if (
+								prop in mergeLimit &&
+								prop in request.merge &&
+								request.merge[ prop ].length >= mergeLimit[ prop ]
+							) {
+								return false;
+							}
+						}
 					}
 
 					// Each unique key must only appear on the request a single time
@@ -142,6 +162,13 @@ class Action extends RESTDataSource {
 			return keys.map( ( key ) => {
 				// First, find the index of the request it was on.
 				const index = requests.findIndex( request => request.keys.includes( key ) );
+
+				// If the API returned an error, throw that error so it is returned
+				// to the user.
+				if ( responses[ index ].error ) {
+					const { error } = responses[ index ];
+					throw new ApolloError( error.code, error.info, omit( error, [ 'code', 'info' ] ) );
+				}
 
 				return responses[ index ];
 			} );

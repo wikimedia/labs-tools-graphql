@@ -27,13 +27,13 @@ const schema = Promise.resolve().then( async () => {
 	return gql`
 		type SiteLinkMap {
 			${siteTypes.join( '' )}
-			sites: [SiteLink]!
+			sites: [SiteLink!]!
 
 			language (
 				"If no code is specified, the language tag from the 'Accept-Language' header will be used."
 				code: ID
 			): SiteLinkLanguage
-			languages: [SiteLinkLanguage]!
+			languages: [SiteLinkLanguage!]!
 		}
 		type SiteLinkLanguage {
 			# Language. GraphQL doesn't support type inheritence.
@@ -42,7 +42,7 @@ const schema = Promise.resolve().then( async () => {
 			localname: String!
 			dir: String!
 			site(code: ID!): SiteLink
-			sites: [SiteLink]!
+			sites: [SiteLink!]!
 		}
 		type EntityLabel {
 			language: String!
@@ -61,6 +61,24 @@ const schema = Promise.resolve().then( async () => {
 			# Page with no argument since it's provided by the sitelink.
 			page: Page
 		}
+		type Reference {
+			hash: String
+			snaks(property: ID): [Snak!]!
+		}
+		type Snak {
+			snaktype: String
+			property: Entity
+			hash: String
+			datatype: String
+		}
+		type Claim {
+			mainsnak: Snak
+			type: String
+			id: ID
+			rank: String
+			qualifiers(property: ID): [Snak!]!
+			references: [Reference!]!
+		}
 		type Entity {
 			pageid: Int
 			ns: Int
@@ -73,17 +91,18 @@ const schema = Promise.resolve().then( async () => {
 				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
 				language: String
 			): EntityLabel
-			labels: [EntityLabel]!
+			labels: [EntityLabel!]!
 			description (
 				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
 				language: String
 			): EntityLabel
-			descriptions: [EntityLabel]!
+			descriptions: [EntityLabel!]!
 			alias (
 				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
 				language: String
-			): [EntityLabel]!
-			aliases: [EntityLabel]!
+			): [EntityLabel!]!
+			aliases: [EntityLabel!]!
+			claims(property: ID): [Claim!]!
 			sitelinks: SiteLinkMap
 		}
 	`;
@@ -244,6 +263,43 @@ const resolveLanguageSites = async ( sitelinks ) => {
 	).filter( language => !!language );
 };
 
+const resolvePropertyItems = prop => ( obj, { property } ) => {
+	const { [ prop ]: set, __site } = obj;
+
+	if ( !set ) {
+		return [];
+	}
+
+	if ( property ) {
+		return ( set[ property ] || [] ).map( item => ( {
+			...item,
+			__site
+		} ) );
+	}
+
+	// If the order is specificed, then use that order.
+	const order = `${prop}-order`;
+	if ( obj[ order ] ) {
+		const { [ order ]: list } = obj;
+		return list.reduce( ( acc, property ) => [
+			...acc,
+			...( set[ property ] || [] ).map( item => ( {
+				...item,
+				__site
+			} ) )
+		], [] );
+	}
+
+	// If there is no order, then just use the order they were returned in.
+	return Object.values( set ).reduce( ( acc, items ) => [
+		...acc,
+		...items.map( item => ( {
+			...item,
+			__site
+		} ) )
+	], [] );
+};
+
 const resolvers = Promise.resolve().then( async () => {
 	const { sites } = await sitematrix;
 
@@ -276,6 +332,31 @@ const resolvers = Promise.resolve().then( async () => {
 		SiteLinkLanguage: {
 			site: ( language, { code } ) => language.sites.find( site => site.code === code )
 		},
+		Reference: {
+			snaks: resolvePropertyItems( 'snaks' )
+		},
+		Claim: {
+			// Pass the __site to the mainsnak.
+			mainsnak: ( { mainsnak, __site } ) => ( {
+				...mainsnak || {},
+				__site
+			} ),
+			qualifiers: resolvePropertyItems( 'qualifiers' ),
+			// Pass the __site to the property.
+			references: ( { __site, references } ) => {
+				return ( references || [] ).map( reference => ( {
+					...reference,
+					__site
+				} ) );
+			}
+		},
+		Snak: {
+			// Pass the __site to the property.
+			property: ( { __site, property: id } ) => ( {
+				__site,
+				id
+			} )
+		},
 		Entity: {
 			pageid: infoResolver( 'pageid' ),
 			ns: infoResolver( 'ns' ),
@@ -283,13 +364,21 @@ const resolvers = Promise.resolve().then( async () => {
 			lastrevid: infoResolver( 'lastrevid' ),
 			modified: infoResolver( 'modified' ),
 			type: infoResolver( 'type' ),
-			id: infoResolver( 'id' ),
 			label: labelResolver( 'labels' ),
 			labels: labelsResolver( 'labels' ),
 			description: labelResolver( 'descriptions' ),
 			descriptions: labelsResolver( 'descriptions' ),
 			alias: labelResolver( 'aliases', true ),
 			aliases: labelsResolver( 'aliases' ),
+			claims: async ( { id, __site }, { property }, { dataSources } ) => {
+				const entity = await dataSources[ __site.dbname ].getEntity( id, 'claims' );
+
+				if ( !entity || !entity.claims ) {
+					return [];
+				}
+
+				return resolvePropertyItems( 'claims' )( { ...entity, __site }, { property } );
+			},
 			sitelinks: async ( { id, __site: { dbname } }, args, { dataSources } ) => {
 				const entity = await dataSources[ dbname ].getEntity( id, 'sitelinks' );
 
