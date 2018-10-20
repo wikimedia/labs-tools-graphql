@@ -1,5 +1,6 @@
 const { ApolloServer } = require( 'apollo-server-hapi' );
 const { Server } = require( 'hapi' );
+const requireHttps = require( 'hapi-require-https' );
 const Accept = require( 'accept' );
 const next = require( 'next' );
 const Action = require( './sources/action' );
@@ -78,6 +79,11 @@ async function main() {
 
 	const server = new Server( {
 		port: 80
+	} );
+
+	// Redirect http to https where X-Forwarded-Proto is 'http'.
+	await server.register( {
+		plugin: requireHttps
 	} );
 
 	await apollo.applyMiddleware( {
