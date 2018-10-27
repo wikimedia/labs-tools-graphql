@@ -9,6 +9,7 @@ import '../styles/styles.css';
 const fetcher = params => (
 	fetch( '/', {
 		method: 'POST',
+		referrerPolicy: 'no-referrer',
 		headers: {
 			'Content-Type': 'application/json'
 		},
@@ -72,6 +73,7 @@ class Index extends React.Component {
 		return (
 			<Fragment>
 				<Head>
+					<meta name="referrer" content="no-referrer" />
 					<link rel="stylesheet" href="/_next/static/style.css" />
 				</Head>
 				<GraphiQL
