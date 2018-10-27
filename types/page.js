@@ -25,6 +25,12 @@ const idResolver = prop => async ( {
 	title,
 	__site: { dbname }
 }, args, { dataSources } ) => {
+	if ( prop === 'title' && title ) {
+		return title;
+	}
+	if ( prop === 'pageid' && id ) {
+		return id;
+	}
 	const page = await dataSources[ dbname ].getPageIds( { id, title } );
 
 	if ( !page ) {

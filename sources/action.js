@@ -2,7 +2,6 @@ const { RESTDataSource } = require( 'apollo-datasource-rest' );
 const { ApolloError } = require( 'apollo-server-hapi' );
 const DataLoader = require( 'dataloader' );
 const get = require( 'lodash/get' );
-const omit = require( 'lodash/omit' );
 
 const mergeLimit = {
 	ids: 50
@@ -167,7 +166,8 @@ class Action extends RESTDataSource {
 				// to the user.
 				if ( responses[ index ].error ) {
 					const { error } = responses[ index ];
-					throw new ApolloError( error.code, error.info, omit( error, [ 'code', 'info' ] ) );
+					const { code, info, ...properties } = error;
+					throw new ApolloError( code, info, properties );
 				}
 
 				return responses[ index ];

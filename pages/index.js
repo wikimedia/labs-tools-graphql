@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Fragment } from 'react';
 import GraphiQL, { Logo } from 'graphiql';
 import Head from 'next/head';
 import Router from 'next/router';
@@ -70,7 +70,7 @@ class Index extends React.Component {
 		}
 
 		return (
-			<React.Fragment>
+			<Fragment>
 				<Head>
 					<link rel="stylesheet" href="/_next/static/style.css" />
 				</Head>
@@ -88,7 +88,7 @@ class Index extends React.Component {
 						/>
 					</Logo>
 				</GraphiQL>
-			</React.Fragment>
+			</Fragment>
 		);
 	}
 }

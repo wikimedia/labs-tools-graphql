@@ -70,6 +70,69 @@ const schema = Promise.resolve().then( async () => {
 			property: Entity
 			hash: String
 			datatype: String
+			datavalue: SnakValue
+		}
+		interface SnakValue {
+			type: String
+		}
+		type SnakValueString implements SnakValue {
+			value: String
+			# SnakValue
+			type: String
+		}
+		type SnakValueEntity implements SnakValue {
+			value: Entity
+			# SnakValue
+			type: String
+		}
+		type SnakValuePage implements SnakValue {
+			value: Page
+			# SnakValue
+			type: String
+		}
+		type SnakValueGlobeCoordinate implements SnakValue {
+			value: SnakValueGlobeCoordinateValue
+			# SnakValue
+			type: String
+		}
+		type SnakValueGlobeCoordinateValue {
+			latitude: Float
+			longitude: Float
+			precision: Float
+			# altitude is not documented.
+			# altitude: Float
+			globe: Entity
+		}
+		type SnakValueMonolingualText implements SnakValue {
+			value: SnakValueMonolingualTextValue
+			# SnakValue
+			type: String
+		}
+		type SnakValueMonolingualTextValue {
+			text: String
+			language: String
+		}
+		type SnakValueQuantity implements SnakValue {
+			value: SnakValueQuantityValue
+			# SnakValue
+			type: String
+		}
+		type SnakValueQuantityValue {
+			amount: String
+			unit: Entity
+		}
+		type SnakValueTime implements SnakValue {
+			value: SnakValueTimeValue
+			# SnakValue
+			type: String
+		}
+		type SnakValueTimeValue {
+			time: String
+			timezone: Int
+			before: Int
+			after: Int
+			precision: Int
+			calendarmodel: Entity
 		}
 		type Claim {
 			mainsnak: Snak
@@ -300,6 +363,21 @@ const resolvePropertyItems = prop => ( obj, { property } ) => {
 	], [] );
 };
 
+const resolveEntityFromUri = prop => ( { __site, [ prop ]: uri } ) => {
+	const url = new URL( uri );
+	const id = url.pathname.split( '/' ).slice( -1 ).pop();
+
+	return {
+		__site,
+		id
+	};
+};
+
+const attachSiteToValue = ( { __site, value } ) => ( {
+	__site,
+	...value
+} );
+
 const resolvers = Promise.resolve().then( async () => {
 	const { sites } = await sitematrix;
 
@@ -355,7 +433,104 @@ const resolvers = Promise.resolve().then( async () => {
 			property: ( { __site, property: id } ) => ( {
 				__site,
 				id
-			} )
+			} ),
+			// Pass the datatype to the datavalue.
+			datavalue: ( { __site, datatype, datavalue } ) => {
+				if ( !datavalue ) {
+					return null;
+				}
+
+				return {
+					__site,
+					__datatype: datatype,
+					...datavalue
+				};
+			}
+		},
+		SnakValue: {
+			__resolveType: ( obj ) => {
+				// If there is no object, then it is not a value Snak.
+				if ( !obj ) {
+					return null;
+				}
+
+				const { __datatype: datatype } = obj;
+				const { type } = obj;
+
+				switch ( type ) {
+					case 'string':
+						switch ( datatype ) {
+							case 'commonsMedia':
+							case 'geo-shape':
+							case 'tabular-data':
+								return 'SnakValuePage';
+							default:
+								return 'SnakValueString';
+						}
+					case 'monolingualtext':
+						return 'SnakValueMonolingualText';
+					case 'wikibase-entityid':
+						return 'SnakValueEntity';
+					case 'quantity':
+						return 'SnakValueQuantity';
+					case 'globecoordinate':
+						return 'SnakValueGlobeCoordinate';
+					case 'time':
+						return 'SnakValueTime';
+					default:
+						// Unkown type.
+						return null;
+				}
+			}
+		},
+		SnakValueEntity: {
+			value: attachSiteToValue
+		},
+		SnakValuePage: {
+			// Attach the site to the value.
+			value: async ( { __site, __datatype: datatype, value } ) => {
+				const { sites } = await sitematrix;
+
+				const commons = sites.find( site => site.dbname === 'commonswiki' );
+
+				switch ( datatype ) {
+					case 'commonsMedia':
+						return {
+							__site: commons,
+							title: `File:${value}`
+						};
+					case 'geo-shape':
+					case 'tabular-data':
+						return {
+							__site: commons,
+							title: value
+						};
+					default:
+						return {
+							__site,
+							title: value
+						};
+				}
+			}
+		},
+		SnakValueGlobeCoordinate: {
+			value: attachSiteToValue
+		},
+		SnakValueGlobeCoordinateValue: {
+			// Get the entity id from the URI.
+			globe: resolveEntityFromUri( 'globe' )
+		},
+		SnakValueQuantity: {
+			value: attachSiteToValue
+		},
+		SnakValueQuantityValue: {
+			unit: resolveEntityFromUri( 'unit' )
+		},
+		SnakValueTime: {
+			value: attachSiteToValue
+		},
+		SnakValueTimeValue: {
+			calendarmodel: resolveEntityFromUri( 'calendarmodel' )
 		},
 		Entity: {
 			pageid: infoResolver( 'pageid' ),
