@@ -27,7 +27,7 @@ const schema = Promise.resolve().then( async () => {
 	return gql`
 		type SiteLinkMap {
 			${siteTypes.join( '' )}
-			sites: [SiteLink!]!
+			links: [SiteLink!]!
 
 			language (
 				"If no code is specified, the language tag from the 'Accept-Language' header will be used."
@@ -41,25 +41,17 @@ const schema = Promise.resolve().then( async () => {
 			name: String!
 			localname: String!
 			dir: String!
-			site(code: ID!): SiteLink
-			sites: [SiteLink!]!
+			link(code: ID!): SiteLink
+			links: [SiteLink!]!
 		}
 		type EntityLabel {
 			language: String!
 			value: String!
 		}
 		type SiteLink {
-			# Site (sans 'page' which is different). GraphQL doesn't support type inheritence.
-			dbname: ID!
-			url: String!
-			code: String!
-			sitename: String!
-			closed: Boolean!
-			fishbowl: Boolean!
-			private: Boolean!
-			language: Language
-			# Page with no argument since it's provided by the sitelink.
-			page: Page
+			site: Site!
+			page: Page!
+			badges: [Entity!]!
 		}
 		type Reference {
 			hash: String
@@ -261,6 +253,24 @@ const labelsResolver = prop => async ( { id, __site: { dbname } }, args, { dataS
 	return multiLabelReducer( entity[ prop ] );
 };
 
+const formatSiteLink = ( site, sitelink ) => {
+	const { __site } = sitelink;
+	const { title } = sitelink;
+
+	return {
+		...sitelink,
+		site,
+		page: {
+			__site: site,
+			title
+		},
+		badges: sitelink.badges.map( id => ( {
+			__site,
+			id
+		} ) )
+	};
+};
+
 const resolveSiteLink = callback => async ( sitelinks, args, info, context ) => {
 	const site = callback( sitelinks, args, info, context );
 
@@ -272,23 +282,13 @@ const resolveSiteLink = callback => async ( sitelinks, args, info, context ) => 
 		return null;
 	}
 
-	return {
-		...site,
-		__sitelink: sitelinks[ site.dbname ]
-	};
+	return formatSiteLink( site, sitelinks[ site.dbname ] );
 };
 
 const resolveSiteLinks = callback => async ( sitelinks, args, info, context ) => (
-	( await callback( sitelinks, args, info, context ) ).map( ( site ) => {
-		if ( !( site.dbname in sitelinks ) ) {
-			return null;
-		}
-
-		return {
-			...site,
-			__sitelink: sitelinks[ site.dbname ]
-		};
-	} ).filter( data => !!data )
+	( await callback( sitelinks, args, info, context ) )
+		.filter( site => site.dbname in sitelinks )
+		.map( site => formatSiteLink( site, sitelinks[ site.dbname ] ) )
 );
 
 const siteLinkLanguage = ( sitelinks, language, sites ) => {
@@ -302,10 +302,7 @@ const siteLinkLanguage = ( sitelinks, language, sites ) => {
 
 	return {
 		...language,
-		sites: langSiteLinks.map( site => ( {
-			...site,
-			__sitelink: sitelinks[ site.dbname ]
-		} ) )
+		links: langSiteLinks.map( site => formatSiteLink( site, sitelinks[ site.dbname ] ) )
 	};
 };
 
@@ -387,28 +384,14 @@ const resolvers = Promise.resolve().then( async () => {
 	}
 
 	return {
-		SiteLink: {
-			page: ( site ) => {
-				const { __sitelink: sitelink } = site;
-
-				if ( !( 'title' in sitelink ) ) {
-					return null;
-				}
-
-				return {
-					__site: site,
-					title: sitelink.title
-				};
-			}
-		},
 		SiteLinkMap: {
 			...siteResolverMap,
-			sites: resolveSiteLinks( () => sites ),
+			links: resolveSiteLinks( () => sites ),
 			language: resolveLanguageSite,
 			languages: resolveLanguageSites
 		},
 		SiteLinkLanguage: {
-			site: ( language, { code } ) => language.sites.find( site => site.code === code )
+			link: ( language, { code } ) => language.links.find( link => link.site.code === code )
 		},
 		Reference: {
 			snaks: resolvePropertyItems( 'snaks' )
@@ -554,14 +537,24 @@ const resolvers = Promise.resolve().then( async () => {
 
 				return resolvePropertyItems( 'claims' )( { ...entity, __site }, { property } );
 			},
-			sitelinks: async ( { id, __site: { dbname } }, args, { dataSources } ) => {
+			sitelinks: async ( { id, __site }, args, { dataSources } ) => {
+				const { dbname } = __site;
 				const entity = await dataSources[ dbname ].getEntity( id, 'sitelinks' );
 
 				if ( !entity ) {
 					return {};
 				}
 
-				return entity.sitelinks;
+				const links = {};
+
+				for ( const key in entity.sitelinks ) {
+					links[ key ] = {
+						...entity.sitelinks[ key ],
+						__site
+					};
+				}
+
+				return links;
 			}
 		}
 	};
