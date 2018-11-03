@@ -194,11 +194,25 @@ class Action extends RESTDataSource {
 		);
 	}
 
-	async getPageIds( { id, title } ) {
+	getPageIdProp( id, title ) {
+		if ( id ) {
+			return {
+				pageids: id
+			};
+		}
+
+		if ( title ) {
+			return {
+				titles: title
+			};
+		}
+	}
+
+	async getPage( { id, title }, prop ) {
 		const data = await this.dataLoader.load( {
 			merge: {
-				pageids: id,
-				titles: title
+				...this.getPageIdProp( id, title ),
+				prop
 			},
 			unique: {
 				action: 'query'
@@ -222,8 +236,7 @@ class Action extends RESTDataSource {
 	async getPageExtract( { id, title }, args = {} ) {
 		const data = await this.dataLoader.load( {
 			merge: {
-				pageids: id,
-				titles: title,
+				...this.getPageIdProp( id, title ),
 				prop: 'extracts'
 			},
 			unique: {

@@ -52,6 +52,7 @@ const schema = Promise.resolve().then( async () => {
 			site: Site!
 			page: Page!
 			badges: [Entity!]!
+			url: String!
 		}
 		type Reference {
 			hash: String
@@ -135,13 +136,13 @@ const schema = Promise.resolve().then( async () => {
 			references: [Reference!]!
 		}
 		type Entity {
-			pageid: Int
-			ns: Int
-			title: String
-			lastrevid: Int
+			page: Page
 			modified: String
 			type: String
 			id: ID
+			claims(property: ID): [Claim!]!
+
+			# Items & Properties
 			label (
 				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
 				language: String
@@ -157,8 +158,35 @@ const schema = Promise.resolve().then( async () => {
 				language: String
 			): [EntityLabel!]!
 			aliases: [EntityLabel!]!
-			claims(property: ID): [Claim!]!
+
+			# Items
 			sitelinks: SiteLinkMap
+
+			# Lexemes
+			lemma (
+				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
+				language: String
+			): EntityLabel
+			lemmas: [EntityLabel!]!
+			lexicalCategory: Entity
+			language: Entity
+			forms: [Entity!]!
+			senses: [Entity!]!
+
+			# Forms
+			representation (
+				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
+				language: String
+			): EntityLabel
+			representations: [EntityLabel!]!
+			grammaticalFeatures: [Entity!]!
+
+			# Senses
+			gloss (
+				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
+				language: String
+			): EntityLabel
+			glosses: [EntityLabel!]!
 		}
 	`;
 } );
@@ -187,12 +215,23 @@ const multiLabelReducer = labels => Object.values( labels ).reduce( ( acc, label
 	];
 }, [] );
 
-const labelResolver = ( prop, multi = false ) => async (
-	{ id, __site: { dbname } },
+const entityLabelResolver = entityProp => ( prop, multi = false ) => async (
+	entity,
 	{ language },
 	{ dataSources, languages: acceptLanguages }
 ) => {
-	const entity = await dataSources[ dbname ].getEntity( id, prop, language || acceptLanguages );
+	const { __site: { dbname } } = entity;
+	const { id } = entity;
+
+	// If the entityProp is undefined and the prop is not already in
+	// the entity, then the entity should be requested.
+	if ( !entityProp || !( prop in entity ) ) {
+		entity = await dataSources[ dbname ].getEntity(
+			id,
+			entityProp || prop,
+			language || acceptLanguages
+		);
+	}
 
 	if ( !entity ) {
 		return multi ? [] : null;
@@ -239,8 +278,18 @@ const labelResolver = ( prop, multi = false ) => async (
 	return preferedLabels.filter( label => label.language === topLanguage );
 };
 
-const labelsResolver = prop => async ( { id, __site: { dbname } }, args, { dataSources } ) => {
-	const entity = await dataSources[ dbname ].getEntity( id, prop, '*' );
+const labelResolver = entityLabelResolver();
+const infoLabelResolver = entityLabelResolver( 'info' );
+
+const entityLabelsResolver = entityProp => prop => async ( entity, args, { dataSources } ) => {
+	const { __site: { dbname } } = entity;
+	const { id } = entity;
+
+	// If the entityProp is undefined and the prop is not already in
+	// the entity, then the entity should be requested.
+	if ( !entityProp || !( prop in entity ) ) {
+		entity = await dataSources[ dbname ].getEntity( id, entityProp || prop, '*' );
+	}
 
 	if ( !entity ) {
 		return [];
@@ -252,6 +301,9 @@ const labelsResolver = prop => async ( { id, __site: { dbname } }, args, { dataS
 
 	return multiLabelReducer( entity[ prop ] );
 };
+
+const labelsResolver = entityLabelsResolver();
+const infoLabelsResolver = entityLabelsResolver( 'info' );
 
 const formatSiteLink = ( site, sitelink ) => {
 	const { __site } = sitelink;
@@ -374,6 +426,49 @@ const attachSiteToValue = ( { __site, value } ) => ( {
 	__site,
 	...value
 } );
+
+const resolveEntityById = prop => async ( obj, args, context ) => {
+	const id = await infoResolver( prop )( obj, args, context );
+
+	if ( !id ) {
+		return null;
+	}
+
+	const { __site } = obj;
+
+	return {
+		__site,
+		id
+	};
+};
+
+const resolveEntityByIds = prop => async ( obj, args, context ) => {
+	const ids = await infoResolver( prop )( obj, args, context );
+
+	if ( !ids ) {
+		return [];
+	}
+
+	const { __site } = obj;
+
+	return ids.map( id => ( {
+		__site,
+		id
+	} ) );
+};
+
+const resolveEmbededEntities = prop => async ( { id, __site }, args, { dataSources } ) => {
+	const entity = await dataSources[ __site.dbname ].getEntity( id, 'info' );
+
+	if ( !entity || !( prop in entity ) ) {
+		return [];
+	}
+
+	return entity[ prop ].map( item => ( {
+		__site,
+		...item
+	} ) );
+};
 
 const resolvers = Promise.resolve().then( async () => {
 	const { sites } = await sitematrix;
@@ -516,10 +611,19 @@ const resolvers = Promise.resolve().then( async () => {
 			calendarmodel: resolveEntityFromUri( 'calendarmodel' )
 		},
 		Entity: {
-			pageid: infoResolver( 'pageid' ),
-			ns: infoResolver( 'ns' ),
-			title: infoResolver( 'title' ),
-			lastrevid: infoResolver( 'lastrevid' ),
+			page: async ( { id, __site }, args, { dataSources } ) => {
+				const { dbname } = __site;
+				const entity = await dataSources[ dbname ].getEntity( id, 'info' );
+
+				if ( !entity ) {
+					return null;
+				}
+
+				return {
+					__site,
+					...entity
+				};
+			},
 			modified: infoResolver( 'modified' ),
 			type: infoResolver( 'type' ),
 			label: labelResolver( 'labels' ),
@@ -528,10 +632,14 @@ const resolvers = Promise.resolve().then( async () => {
 			descriptions: labelsResolver( 'descriptions' ),
 			alias: labelResolver( 'aliases', true ),
 			aliases: labelsResolver( 'aliases' ),
-			claims: async ( { id, __site }, { property }, { dataSources } ) => {
-				const entity = await dataSources[ __site.dbname ].getEntity( id, 'claims' );
+			claims: async ( entity, { property }, { dataSources } ) => {
+				const { id, __site } = entity;
 
-				if ( !entity || !entity.claims ) {
+				if ( !( 'claims' in entity ) ) {
+					entity = await dataSources[ __site.dbname ].getEntity( id, 'claims' );
+				}
+
+				if ( !entity || !( 'claims' in entity ) ) {
 					return [];
 				}
 
@@ -539,7 +647,7 @@ const resolvers = Promise.resolve().then( async () => {
 			},
 			sitelinks: async ( { id, __site }, args, { dataSources } ) => {
 				const { dbname } = __site;
-				const entity = await dataSources[ dbname ].getEntity( id, 'sitelinks' );
+				const entity = await dataSources[ dbname ].getEntity( id, 'sitelinks/urls' );
 
 				if ( !entity ) {
 					return {};
@@ -555,7 +663,18 @@ const resolvers = Promise.resolve().then( async () => {
 				}
 
 				return links;
-			}
+			},
+			lemma: infoLabelResolver( 'lemmas' ),
+			lemmas: infoLabelsResolver( 'lemmas' ),
+			lexicalCategory: resolveEntityById( 'lexicalCategory' ),
+			language: resolveEntityById( 'language' ),
+			representation: infoLabelResolver( 'representations' ),
+			representations: infoLabelsResolver( 'representations' ),
+			grammaticalFeatures: resolveEntityByIds( 'grammaticalFeatures' ),
+			gloss: infoLabelResolver( 'glosses' ),
+			glosses: infoLabelsResolver( 'glosses' ),
+			forms: resolveEmbededEntities( 'forms' ),
+			senses: resolveEmbededEntities( 'senses' )
 		}
 	};
 } );
