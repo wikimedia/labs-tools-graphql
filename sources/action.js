@@ -195,17 +195,10 @@ class Action extends RESTDataSource {
 	}
 
 	getPageIdProp( id, title ) {
-		if ( id ) {
-			return {
-				pageids: id
-			};
-		}
-
-		if ( title ) {
-			return {
-				titles: title
-			};
-		}
+		return {
+			pageids: id,
+			titles: title
+		};
 	}
 
 	async getPage( { id, title }, prop ) {
@@ -262,21 +255,19 @@ class Action extends RESTDataSource {
 	 * @param {string} [page.title]
 	 * @param {object} [args={}]
 	 * @param {int} [args.chars]
-	 * @param {int} [args.sentences]
-	 * @param {bool} [args.intro=false]
-	 * @param {bool} [args.plaintext=false]
-	 * @param {int} [args.sectionformat]
+	 * @param {int[]} [args.namespace]
+	 * @param {string[]} [args.show]
+	 * @param {int} [args.limit]
+	 * @param {string} [args.continue]
 	 */
 	async getPageLinksHere( { id, title }, args = {} ) {
 		const data = await this.dataLoader.load( {
-			merge: {
-				...this.getPageIdProp( id, title ),
-				glhnamespace: args.namespace,
-				glhshow: args.show
-			},
 			unique: {
+				...this.getPageIdProp( id, title ),
 				action: 'query',
 				generator: 'linkshere',
+				glhnamespace: args.namespace,
+				glhshow: args.show,
 				glhlimit: args.limit,
 				glhcontinue: args.continue
 			}
