@@ -254,6 +254,38 @@ class Action extends RESTDataSource {
 		return page ? page.extract : null;
 	}
 
+	/**
+	 * @param {object} page
+	 * @param {int} [page.id]
+	 * @param {string} [page.title]
+	 * @param {object} [args={}]
+	 * @param {int} [args.chars]
+	 * @param {int} [args.sentences]
+	 * @param {bool} [args.intro=false]
+	 * @param {bool} [args.plaintext=false]
+	 * @param {int} [args.sectionformat]
+	 */
+	async getPageLinksHere( { id, title }, args = {} ) {
+		const data = await this.dataLoader.load( {
+			merge: {
+				...this.getPageIdProp( id, title ),
+				glhnamespace: args.namespace,
+				glhshow: args.show
+			},
+			unique: {
+				action: 'query',
+				generator: 'linkshere',
+				glhlimit: args.limit,
+				glhcontinue: args.continue
+			}
+		} );
+
+		return {
+			'continue': get( data, [ 'continue', 'glhcontinue' ] ),
+			pages: get( data, [ 'query', 'pages' ], [] )
+		};
+	}
+
 	async getEntity( id, prop, languages = [] ) {
 		const data = await this.dataLoader.load( {
 			merge: {

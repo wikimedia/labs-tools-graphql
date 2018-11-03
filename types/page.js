@@ -7,6 +7,10 @@ const schema = gql`
 		raw
 		wiki
 	}
+	type PageList {
+		continue: String
+		pages: [Page!]!
+	}
 	type Page {
 		pageid: Int
 		ns: Int
@@ -25,6 +29,12 @@ const schema = gql`
 			plaintext: Boolean,
 			sectionformat: PageExtractSectionFormat
 		): String
+		linkshere(
+			continue: String
+			namespace: [Int!]
+			show: [String!]
+			limit: Int
+		): PageList
 	}
 `;
 
@@ -79,7 +89,19 @@ const resolvers = {
 		},
 		extract: async ( { pageid: id, title, __site: { dbname } }, args, { dataSources } ) => (
 			dataSources[ dbname ].getPageExtract( { id, title }, args )
-		)
+		),
+		linkshere: async ( { pageid: id, title, __site }, args, { dataSources } ) => {
+			const { dbname } = __site;
+			const data = await dataSources[ dbname ].getPageLinksHere( { id, title }, args );
+
+			return {
+				...data,
+				pages: data.pages.map( page => ( {
+					__site,
+					...page
+				} ) )
+			};
+		}
 	}
 };
 
