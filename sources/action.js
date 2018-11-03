@@ -195,9 +195,23 @@ class Action extends RESTDataSource {
 	}
 
 	getPageIdProp( id, title ) {
+		if ( id ) {
+			return {
+				pageids: id,
+				titles: undefined
+			};
+		}
+
+		if ( title ) {
+			return {
+				pageids: undefined,
+				titles: title
+			};
+		}
+
 		return {
-			pageids: id,
-			titles: title
+			pageids: undefined,
+			titles: undefined
 		};
 	}
 
