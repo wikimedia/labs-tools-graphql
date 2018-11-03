@@ -215,7 +215,8 @@ class Action extends RESTDataSource {
 				prop
 			},
 			unique: {
-				action: 'query'
+				action: 'query',
+				generator: undefined
 			}
 		} );
 
@@ -241,6 +242,7 @@ class Action extends RESTDataSource {
 			},
 			unique: {
 				action: 'query',
+				generator: undefined,
 				exchars: args.chars,
 				exsentences: args.sentences,
 				exintro: args.intro || false,
