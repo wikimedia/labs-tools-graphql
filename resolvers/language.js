@@ -1,25 +1,20 @@
 const sitematrix = require( '../utils/sitematrix' );
 
-const languageResolver = async ( obj, { code }, { languages: acceptLanguages } ) => {
+const languageResolver = async ( obj, { code: codes }, { languages: acceptLanguages } ) => {
 	const { languages } = await sitematrix;
+	codes = codes || acceptLanguages;
 
-	if ( code ) {
-		return languages.find( l => l.code === code );
+	if ( codes ) {
+		for ( let i = 0; i < codes.length; i++ ) {
+			const code = codes[ i ];
+			const language = languages.find( l => l.code === code );
+			if ( language ) {
+				return language;
+			}
+		}
 	}
 
-	const preferedLanguages = languages.filter( lang => (
-		acceptLanguages.includes( lang.code )
-	) ).sort( ( a, b ) => (
-		// Sort by number of breaks in the language code.
-		// Sort by preference.
-		acceptLanguages.findIndex(
-			tag => tag === a.code
-		) - acceptLanguages.findIndex(
-			tag => tag === b.code
-		)
-	) );
-
-	return preferedLanguages.length > 0 ? preferedLanguages[ 0 ] : undefined;
+	return null;
 };
 
 module.exports = languageResolver;

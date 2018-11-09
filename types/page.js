@@ -1,5 +1,6 @@
 const { gql } = require( 'apollo-server-hapi' );
 const startsWith = require( 'lodash/startsWith' );
+const get = require( 'lodash/get' );
 
 const schema = gql`
 	enum PageExtractSectionFormat {
@@ -10,6 +11,40 @@ const schema = gql`
 	type PageList {
 		continue: String
 		pages: [Page!]!
+	}
+	type ImageThumb {
+		url: String
+		width: Int
+		height: Int
+		mime: String
+	}
+	type Image {
+		archivename: String
+		bitdepth: Int
+		canonicaltitle: String
+		comment: String
+		parsedcomment: String
+		timestamp: String
+		url: String
+		descriptionurl: String
+		descriptionshorturl: String
+		size: Int
+		width: Int
+		height: Int
+		pagecount: Int
+		sha1: String
+		mime: String
+		mediatype: String
+		thumb(width: Int, height: Int): ImageThumb
+		# @TODO Implement User!
+		# user: User
+		# metadata: ?
+		# commonmetadata: ?
+		# extmetadata: ?
+	}
+	type ImageInfo {
+		start: String
+		images: [Image!]!
 	}
 	type Page {
 		pageid: Int
@@ -25,8 +60,8 @@ const schema = gql`
 		extract(
 			chars: Int
 			sentences: Int
-			intro: Boolean,
-			plaintext: Boolean,
+			intro: Boolean
+			plaintext: Boolean
 			sectionformat: PageExtractSectionFormat
 		): String
 		linkshere(
@@ -35,6 +70,13 @@ const schema = gql`
 			show: [String!]
 			limit: Int
 		): PageList
+		imageinfo(
+			limit: Int
+			start: String
+			end: String
+			continue: String
+			localonly: Boolean
+		): ImageInfo
 	}
 `;
 
@@ -57,6 +99,28 @@ const pageResolver = actionProp => prop => async ( page, args, { dataSources } )
 
 const idResolver = pageResolver();
 const infoResolver = pageResolver( 'info' );
+
+const imageResolver = actionProp => prop => async ( image, args, { dataSources } ) => {
+	const { __site: { dbname } } = image;
+	const { __page: { pageid: id, title } } = image;
+	const { __args } = image;
+	const { __index } = image;
+
+	if ( prop in image && image[ prop ] ) {
+		return image[ prop ];
+	}
+
+	const { images } = await dataSources[ dbname ].getImageInfo(
+		{ id, title },
+		__args,
+		actionProp
+	);
+
+	return get( images, [ __index, prop ] );
+};
+
+const imageUrlResolver = imageResolver( 'url' );
+const imageSizeResolver = imageResolver( 'size' );
 
 const resolvers = {
 	Page: {
@@ -100,6 +164,64 @@ const resolvers = {
 					__site,
 					...page
 				} ) )
+			};
+		},
+		imageinfo: async ( page, args, { dataSources } ) => {
+			const { __site } = page;
+			const { dbname } = __site;
+			const { pageid: id, title } = page;
+			const data = await dataSources[ dbname ].getImageInfo( { id, title }, args );
+
+			return {
+				...data,
+				images: data.images.map( ( image, __index ) => ( {
+					__site,
+					__page: page,
+					__args: args,
+					__index,
+					...image
+				} ) )
+			};
+		}
+	},
+	Image: {
+		archivename: imageResolver( 'archivename' )( 'archivename' ),
+		bitdepth: imageResolver( 'bitdepth' )( 'bitdepth' ),
+		canonicaltitle: imageResolver( 'canonicaltitle' )( 'canonicaltitle' ),
+		comment: imageResolver( 'comment' )( 'comment' ),
+		parsedcomment: imageResolver( 'parsedcomment' )( 'parsedcomment' ),
+		timestamp: imageResolver( 'timestamp' )( 'timestamp' ),
+		url: imageUrlResolver( 'url' ),
+		descriptionurl: imageUrlResolver( 'url' ),
+		descriptionshorturl: imageUrlResolver( 'url' ),
+		size: imageSizeResolver( 'size' ),
+		width: imageSizeResolver( 'width' ),
+		height: imageSizeResolver( 'height' ),
+		pagecount: imageSizeResolver( 'pagecount' ),
+		sha1: imageResolver( 'sha1' )( 'sha1' ),
+		mime: imageResolver( 'mime' )( 'mime' ),
+		mediatype: imageResolver( 'mediatype' )( 'mediatype' ),
+		thumb: async ( image, args, { dataSources } ) => {
+			const { __site: { dbname } } = image;
+			const { __page: { pageid: id, title } } = image;
+			const { __args } = image;
+			const { __index } = image;
+			const { images } = await dataSources[ dbname ].getImageInfoThumb( { id, title }, {
+				...__args,
+				...args
+			} );
+
+			const data = get( images, [ __index ] );
+
+			if ( !data ) {
+				return null;
+			}
+
+			return {
+				url: data.thumburl,
+				width: data.thumbwidth,
+				height: data.height,
+				mime: data.thumbmime
 			};
 		}
 	}

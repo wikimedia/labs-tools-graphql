@@ -14,7 +14,7 @@ const schema = Promise.resolve().then( async () => {
 			return `
 				${code} (
 					"If no language is specified, the language tag from the 'Accept-Language' header will be used."
-					language: ID
+					language: [ID!]
 				): SiteLink
 			`;
 		}
@@ -31,9 +31,9 @@ const schema = Promise.resolve().then( async () => {
 
 			language (
 				"If no code is specified, the language tag from the 'Accept-Language' header will be used."
-				code: ID
+				code: [ID!]
 			): SiteLinkLanguage
-			languages: [SiteLinkLanguage!]!
+			languages(code: [ID!]): [SiteLinkLanguage!]!
 		}
 		type SiteLinkLanguage {
 			# Language. GraphQL doesn't support type inheritence.
@@ -42,7 +42,7 @@ const schema = Promise.resolve().then( async () => {
 			localname: String!
 			dir: String!
 			link(code: ID!): SiteLink
-			links: [SiteLink!]!
+			links(code: [ID!]): [SiteLink!]!
 		}
 		type EntityLabel {
 			language: String!
@@ -56,7 +56,7 @@ const schema = Promise.resolve().then( async () => {
 		}
 		type Reference {
 			hash: String
-			snaks(property: ID): [Snak!]!
+			snaks(property: [ID!]): [Snak!]!
 		}
 		type Snak {
 			snaktype: String
@@ -132,7 +132,7 @@ const schema = Promise.resolve().then( async () => {
 			type: String
 			id: ID
 			rank: String
-			qualifiers(property: ID): [Snak!]!
+			qualifiers(property: [ID!]): [Snak!]!
 			references: [Reference!]!
 		}
 		type Entity {
@@ -140,24 +140,24 @@ const schema = Promise.resolve().then( async () => {
 			modified: String
 			type: String
 			id: ID
-			claims(property: ID): [Claim!]!
+			claims(property: [ID!]): [Claim!]!
 
 			# Items & Properties
 			label (
 				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
-				language: String
+				language: [String!]
 			): EntityLabel
-			labels: [EntityLabel!]!
+			labels(language: [String!]): [EntityLabel!]!
 			description (
 				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
-				language: String
+				language: [String!]
 			): EntityLabel
-			descriptions: [EntityLabel!]!
+			descriptions(language: [String!]): [EntityLabel!]!
 			alias (
 				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
-				language: String
+				language: [String!]
 			): [EntityLabel!]!
-			aliases: [EntityLabel!]!
+			aliases(language: [String!]): [EntityLabel!]!
 
 			# Items
 			sitelinks: SiteLinkMap
@@ -165,9 +165,9 @@ const schema = Promise.resolve().then( async () => {
 			# Lexemes
 			lemma (
 				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
-				language: String
+				language: [String!]
 			): EntityLabel
-			lemmas: [EntityLabel!]!
+			lemmas(language: [String!]): [EntityLabel!]!
 			lexicalCategory: Entity
 			language: Entity
 			forms: [Entity!]!
@@ -176,17 +176,17 @@ const schema = Promise.resolve().then( async () => {
 			# Forms
 			representation (
 				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
-				language: String
+				language: [String!]
 			): EntityLabel
-			representations: [EntityLabel!]!
+			representations(language: [String!]): [EntityLabel!]!
 			grammaticalFeatures: [Entity!]!
 
 			# Senses
 			gloss (
 				"If no language is specified, the language tag from the 'Accept-Language' header will be used."
-				language: String
+				language: [String!]
 			): EntityLabel
-			glosses: [EntityLabel!]!
+			glosses(language: [String!]): [EntityLabel!]!
 		}
 	`;
 } );
@@ -217,11 +217,13 @@ const multiLabelReducer = labels => Object.values( labels ).reduce( ( acc, label
 
 const entityLabelResolver = entityProp => ( prop, multi = false ) => async (
 	entity,
-	{ language },
+	{ language: languages },
 	{ dataSources, languages: acceptLanguages }
 ) => {
 	const { __site: { dbname } } = entity;
 	const { id } = entity;
+
+	languages = languages || acceptLanguages;
 
 	// If the entityProp is undefined and the prop is not already in
 	// the entity, then the entity should be requested.
@@ -229,7 +231,7 @@ const entityLabelResolver = entityProp => ( prop, multi = false ) => async (
 		entity = await dataSources[ dbname ].getEntity(
 			id,
 			entityProp || prop,
-			language || acceptLanguages
+			languages
 		);
 	}
 
@@ -241,54 +243,34 @@ const entityLabelResolver = entityProp => ( prop, multi = false ) => async (
 		return multi ? [] : null;
 	}
 
-	if ( language ) {
-		if ( language in entity[ prop ] ) {
-			return entity[ prop ][ language ];
+	if ( languages ) {
+		// Return the first language that is availble.
+		for ( let i = 0; i < languages.length; i++ ) {
+			const language = languages[ i ];
+			if ( language in entity[ prop ] ) {
+				return entity[ prop ][ language ];
+			}
 		}
 
 		return multi ? [] : null;
 	}
-
-	// Property value is either an object, or an array of objects, reduce!
-	let labels = multiLabelReducer( entity[ prop ] );
-
-	const preferedLabels = labels.filter( label => (
-		// Remove irelevant sites.
-		acceptLanguages.includes( label.language )
-	) ).sort( ( a, b ) => (
-		// Sort by preference.
-		acceptLanguages.findIndex(
-			tag => tag === a.language
-		) - acceptLanguages.findIndex(
-			tag => tag === b.language
-		)
-	) );
-
-	if ( preferedLabels.length === 0 ) {
-		return multi ? [] : null;
-	}
-
-	// Return the first item from the list.
-	if ( !multi ) {
-		return preferedLabels[ 0 ];
-	}
-
-	// Return the top items from the list, but ensure they are all the same language.
-	const topLanguage = preferedLabels[ 0 ].language;
-	return preferedLabels.filter( label => label.language === topLanguage );
 };
 
 const labelResolver = entityLabelResolver();
 const infoLabelResolver = entityLabelResolver( 'info' );
 
-const entityLabelsResolver = entityProp => prop => async ( entity, args, { dataSources } ) => {
+const entityLabelsResolver = entityProp => prop => async (
+	entity,
+	{ language: languages },
+	{ dataSources }
+) => {
 	const { __site: { dbname } } = entity;
 	const { id } = entity;
 
 	// If the entityProp is undefined and the prop is not already in
 	// the entity, then the entity should be requested.
 	if ( !entityProp || !( prop in entity ) ) {
-		entity = await dataSources[ dbname ].getEntity( id, entityProp || prop, '*' );
+		entity = await dataSources[ dbname ].getEntity( id, entityProp || prop, languages || '*' );
 	}
 
 	if ( !entity ) {
@@ -297,6 +279,26 @@ const entityLabelsResolver = entityProp => prop => async ( entity, args, { dataS
 
 	if ( !( prop in entity ) ) {
 		return [];
+	}
+
+	if ( languages ) {
+		return languages.reduce( ( acc, language ) => {
+			if ( language in entity[ prop ] ) {
+				if ( !Array.isArray( entity[ prop ][ language ] ) ) {
+					return [
+						...acc,
+						entity[ prop ][ language ]
+					];
+				}
+
+				return [
+					...acc,
+					...entity[ prop ][ language ]
+				];
+			}
+
+			return acc;
+		}, [] );
 	}
 
 	return multiLabelReducer( entity[ prop ] );
@@ -367,26 +369,45 @@ const resolveLanguageSite = async ( sitelinks, args, info, context ) => {
 	return siteLinkLanguage( sitelinks, language, sites );
 };
 
-const resolveLanguageSites = async ( sitelinks ) => {
-	const { languages, sites } = await sitematrix;
+const resolveLanguageSites = async ( sitelinks, { code: codes } ) => {
+	let { languages, sites } = await sitematrix;
+
+	if ( codes ) {
+		languages = codes.reduce( ( acc, code ) => {
+			const language = languages.find( l => l.code === code );
+			if ( language ) {
+				return [
+					...acc,
+					language
+				];
+			}
+
+			return acc;
+		}, [] );
+	}
 
 	return languages.map(
 		language => siteLinkLanguage( sitelinks, language, sites )
 	).filter( language => !!language );
 };
 
-const resolvePropertyItems = prop => ( obj, { property } ) => {
+const resolvePropertyItems = prop => ( obj, { property: properties } ) => {
 	const { [ prop ]: set, __site } = obj;
 
 	if ( !set ) {
 		return [];
 	}
 
-	if ( property ) {
-		return ( set[ property ] || [] ).map( item => ( {
-			...item,
-			__site
-		} ) );
+	// If the query specifies the properties, then use those in the order
+	// specified.
+	if ( properties ) {
+		return properties.reduce( ( acc, property ) => [
+			...acc,
+			...( set[ property ] || [] ).map( item => ( {
+				...item,
+				__site
+			} ) )
+		], [] );
 	}
 
 	// If the order is specificed, then use that order.
@@ -486,7 +507,9 @@ const resolvers = Promise.resolve().then( async () => {
 			languages: resolveLanguageSites
 		},
 		SiteLinkLanguage: {
-			link: ( language, { code } ) => language.links.find( link => link.site.code === code )
+			link: ( language, { code } ) => language.links.find(
+				link => code.includes( link.site.code )
+			)
 		},
 		Reference: {
 			snaks: resolvePropertyItems( 'snaks' )

@@ -14,7 +14,7 @@ const schema = Promise.resolve().then( async () => {
 			return `
 				${code} (
 					"If no language is specified, the language tag from the 'Accept-Language' header will be used."
-					language: ID
+					language: [ID!]
 				): Site
 			`;
 		}
@@ -31,9 +31,9 @@ const schema = Promise.resolve().then( async () => {
 
 			language (
 				"If no code is specified, the language tag from the 'Accept-Language' header will be used."
-				code: ID
+				code: [ID!]
 			): Language
-			languages: [Language]!
+			languages(code: [ID!]): [Language]!
 		}
 	`;
 } );
@@ -46,7 +46,24 @@ const resolvers = Promise.resolve().then( async () => {
 			...await siteResolvers(),
 			sites: () => sites,
 			language: languageResolver,
-			languages: () => languages
+			languages: ( obj, { code: codes } ) => {
+				if ( !codes ) {
+					return languages;
+				}
+
+				return codes.reduce( ( acc, code ) => {
+					const language = languages.find( l => l.code === code );
+
+					if ( language ) {
+						return [
+							...acc,
+							language
+						];
+					}
+
+					return acc;
+				}, [] );
+			}
 		}
 	};
 } );

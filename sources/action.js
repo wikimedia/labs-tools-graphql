@@ -293,6 +293,66 @@ class Action extends RESTDataSource {
 		};
 	}
 
+	/**
+	 * @param {object} page
+	 * @param {int} [page.id]
+	 * @param {string} [page.title]
+	 * @param {object} [args={}]
+	 * @param {int} [args.limit]
+	 * @param {string} [args.start]
+	 * @param {string} [args.end]
+	 * @param {string} [args.continue]
+	 * @param {bool} [args.localonly]
+	 * @param {string} prop
+	 */
+	async getImageInfo( { id, title }, args = {}, prop = 'archivename' ) {
+		const data = await this.dataLoader.load( {
+			merge: {
+				prop: 'imageinfo',
+				iiprop: prop
+			},
+			unique: {
+				...this.getPageIdProp( id, title ),
+				action: 'query',
+				iilimit: args.limit,
+				iistart: args.start,
+				iiend: args.end,
+				iicontinue: args.continue,
+				iilocalonly: args.localonly
+			}
+		} );
+
+		return {
+			start: get( data, [ 'continue', 'iistart' ] ),
+			images: get( data, [ 'query', 'pages', 0, 'imageinfo' ], [] )
+		};
+	}
+
+	async getImageInfoThumb( { id, title }, args = {} ) {
+		const data = await this.dataLoader.load( {
+			merge: {
+				prop: 'imageinfo',
+				iiprop: [ 'url', 'thumbmime' ]
+			},
+			unique: {
+				...this.getPageIdProp( id, title ),
+				action: 'query',
+				iilimit: args.limit,
+				iistart: args.start,
+				iiend: args.end,
+				iicontinue: args.continue,
+				iilocalonly: args.localonly,
+				iiurlwidth: args.width,
+				iiurlheight: args.height
+			}
+		} );
+
+		return {
+			start: get( data, [ 'continue', 'iistart' ] ),
+			images: get( data, [ 'query', 'pages', 0, 'imageinfo' ], [] )
+		};
+	}
+
 	async getEntity( id, prop, languages = [] ) {
 		const data = await this.dataLoader.load( {
 			merge: {

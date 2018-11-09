@@ -10,26 +10,21 @@ const siteResolvers = async () => {
 		if ( multi ) {
 			return {
 				...acc,
-				[ key ]: ( obj, { language }, { languages: acceptLanguages } ) => {
-					if ( language ) {
-						return sites.find( site => (
+				[ key ]: ( obj, { language: languages }, { languages: acceptLanguages } ) => {
+					languages = languages || acceptLanguages;
+
+					for ( let i = 0; i < languages.length; i++ ) {
+						const language = languages[ i ];
+						const site = sites.find( site => (
 							site.code === code && site.languageCode === language
 						) );
+
+						if ( site ) {
+							return site;
+						}
 					}
 
-					const preferedSites = sites.filter( site => (
-						// Remove irelevant sites.
-						site.code === code && acceptLanguages.includes( site.languageCode )
-					) ).sort( ( a, b ) => (
-						// Sort by preference.
-						acceptLanguages.findIndex(
-							tag => tag === a.languageCode
-						) - acceptLanguages.findIndex(
-							tag => tag === b.languageCode
-						)
-					) );
-
-					return preferedSites.length > 0 ? preferedSites[ 0 ] : undefined;
+					return null;
 				}
 			};
 		}
@@ -45,10 +40,27 @@ const siteResolvers = async () => {
 
 module.exports = {
 	resolvers: siteResolvers,
-	sites: async ( language ) => {
-		const { sites } = await sitematrix;
+	sites: async ( language, { code: codes } ) => {
+		let { sites } = await sitematrix;
 
-		return sites.filter( site => site.languageCode === language.code );
+		sites = sites.filter( site => site.languageCode === language.code );
+
+		if ( codes ) {
+			return codes.reduce( ( acc, code ) => {
+				const site = sites.find( site => site.code === code );
+
+				if ( site ) {
+					return [
+						...acc,
+						site
+					];
+				}
+
+				return acc;
+			}, [] );
+		}
+
+		return sites;
 	},
 	site: async ( language, { code } ) => {
 		const { sites } = await sitematrix;
