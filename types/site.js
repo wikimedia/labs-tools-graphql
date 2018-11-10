@@ -15,9 +15,9 @@ const schema = gql`
 		entity(id: ID!): Entity
 		sparql(
 			distinct: Boolean = true
-			select: String = "?entity"
-			where: String!
-			orderBy: String
+			variable: [String!] = "?entity"
+			where: [String!]!
+			orderBy: [String!]
 			limit: Int
 		): [Entity!]!
 	}

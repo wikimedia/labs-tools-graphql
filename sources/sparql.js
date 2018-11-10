@@ -7,23 +7,23 @@ class Sparql extends RESTDataSource {
 		this.baseURL = siteUrl;
 	}
 
-	async query( { distinct, select, where, orderBy, limit } ) {
+	async query( { distinct, variable: variables, where: wheres, orderBy, limit } ) {
 		let query = 'SELECT';
 
 		if ( distinct ) {
 			query = `${query} DISTINCT`;
 		}
 
-		if ( select ) {
-			query = `${query} ${select}`;
+		if ( variables ) {
+			query = `${query} ${variables.join( ' ' )}`;
 		}
 
-		if ( where ) {
-			query = `${query} WHERE { ${where} }`;
+		if ( wheres ) {
+			query = `${query} WHERE {${wheres.join( ' ' )}}`;
 		}
 
 		if ( orderBy ) {
-			query = `${query} ORDER BY ${orderBy}`;
+			query = `${query} ORDER BY ${orderBy.join( ', ' )}`;
 		}
 
 		if ( limit ) {
