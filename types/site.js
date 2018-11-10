@@ -14,7 +14,7 @@ const schema = gql`
 		page(id: Int, title: String): Page
 		entity(id: ID!): Entity
 		"SELECT DISTINCT ?entity"
-		sparql(where: String!, orderBy: String, limit: Int ): [Entity!]
+		sparql(where: String!, orderBy: String, limit: Int ): [Entity!]!
 	}
 `;
 
