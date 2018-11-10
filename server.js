@@ -4,6 +4,7 @@ const requireHttps = require( 'hapi-require-https' );
 const Accept = require( 'accept' );
 const next = require( 'next' );
 const Action = require( './sources/action' );
+const Sparql = require( './sources/sparql' );
 const Query = require( './types/query' );
 const Site = require( './types/site' );
 const Page = require( './types/page' );
@@ -43,14 +44,21 @@ async function main() {
 	const apollo = new ApolloServer( {
 		typeDefs,
 		resolvers,
-		dataSources: () => {
-			return sites.reduce( ( acc, { dbname, url } ) => (
-				{
+		dataSources: () => sites.reduce( ( acc, { dbname, url } ) => {
+			// @TODO Resolve this dynamicly!
+			if ( dbname === 'wikidatawiki' ) {
+				return {
 					...acc,
-					[ dbname ]: new Action( url )
-				}
-			), {} );
-		},
+					[ dbname ]: new Action( url ),
+					[ `${dbname}.sparql` ]: new Sparql( 'https://query.wikidata.org/' )
+				};
+			}
+
+			return {
+				...acc,
+				[ dbname ]: new Action( url )
+			};
+		}, {} ),
 		playground: false,
 		introspection: true,
 		context: ( { request } ) => {

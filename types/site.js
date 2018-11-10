@@ -13,6 +13,8 @@ const schema = gql`
 		language: Language
 		page(id: Int, title: String): Page
 		entity(id: ID!): Entity
+		"SELECT DISTINCT ?entity"
+		sparql(where: String!, orderBy: String, limit: Int ): [Entity!]
 	}
 `;
 
@@ -31,7 +33,20 @@ const resolvers = {
 		entity: ( site, { id } ) => ( {
 			__site: site,
 			id
-		} )
+		} ),
+		sparql: async ( site, args, { dataSources } ) => {
+			const source = `${site.dbname}.sparql`;
+			if ( !( source in dataSources ) ) {
+				return [];
+			}
+
+			const ids = await dataSources[ source ].query( args );
+
+			return ids.map( id => ( {
+				__site: site,
+				id
+			} ) );
+		}
 	}
 };
 
