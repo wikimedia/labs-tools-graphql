@@ -13,8 +13,13 @@ const schema = gql`
 		language: Language
 		page(id: Int, title: String): Page
 		entity(id: ID!): Entity
-		"SELECT DISTINCT ?entity"
-		sparql(where: String!, orderBy: String, limit: Int ): [Entity!]!
+		sparql(
+			distinct: Boolean = true
+			select: String = "?entity"
+			where: String!
+			orderBy: String
+			limit: Int
+		): [Entity!]!
 	}
 `;
 
