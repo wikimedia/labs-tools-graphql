@@ -19,6 +19,7 @@ const schema = gql`
 			where: [String!]!
 			orderBy: [String!]
 			limit: Int
+			offset: Int
 		): [Entity!]!
 	}
 `;
