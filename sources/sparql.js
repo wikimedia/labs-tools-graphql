@@ -7,6 +7,11 @@ class Sparql extends RESTDataSource {
 		this.baseURL = siteUrl;
 	}
 
+	willSendRequest( request ) {
+		// Set User-Agent. @see https://meta.wikimedia.org/wiki/User-Agent_policy
+		request.headers.set( 'User-Agent', 'Wikimedia GraphQL (https://graphql.wmflabs.org/)' );
+	}
+
 	async query( { distinct, variable: variables, where: wheres, orderBy, limit, offset } ) {
 		let query = 'SELECT';
 

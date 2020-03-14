@@ -176,6 +176,9 @@ class Action extends RESTDataSource {
 	}
 
 	willSendRequest( request ) {
+		// Set User-Agent. @see https://meta.wikimedia.org/wiki/User-Agent_policy
+		request.headers.set( 'User-Agent', 'Wikimedia GraphQL (https://graphql.wmflabs.org/)' );
+
 		// Set the Accept-Language header if there is one.
 		if ( this.context.acceptLanguage ) {
 			request.headers.set( 'Accept-Language', this.context.acceptLanguage );

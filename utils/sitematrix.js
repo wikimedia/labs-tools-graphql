@@ -19,7 +19,11 @@ const formatLanguage = ( { code, name, localname, dir } ) => ( {
 // restarted to refresh this list!
 const sitesLanguages = Promise.resolve().then( async () => {
 	const url = 'https://meta.wikimedia.org/w/api.php?action=sitematrix&format=json&formatversion=2';
-	const response = await fetch( url );
+	const response = await fetch( url, {
+		headers: {
+			'User-Agent': 'Wikimedia GraphQL (https://graphql.wmflabs.org/)'
+		}
+	} );
 	const data = await response.json();
 
 	if ( !response.ok ) {
