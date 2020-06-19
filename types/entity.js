@@ -1,4 +1,4 @@
-const { gql } = require( 'apollo-server-hapi' );
+const { gql } = require( 'apollo-server' );
 const sitematrix = require( '../utils/sitematrix' );
 const getCodes = require( '../utils/codes' );
 const { resolvers: siteResolvers } = require( '../resolvers/site' );

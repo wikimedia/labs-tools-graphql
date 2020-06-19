@@ -1,4 +1,4 @@
-const { gql } = require( 'apollo-server-hapi' );
+const { gql } = require( 'apollo-server' );
 const startsWith = require( 'lodash/startsWith' );
 const get = require( 'lodash/get' );
 

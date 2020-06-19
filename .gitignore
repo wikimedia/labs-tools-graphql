@@ -1,4 +1,5 @@
-/.env
-.next/
+/.npm
 coverage/
+html/
 node_modules/
+docker-compose.override.yml

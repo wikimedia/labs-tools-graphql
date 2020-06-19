@@ -1,7 +1,12 @@
 version: '3'
 services:
-  web:
-    build: ./
-    image: wikimedia/graphql
-    env_file:
-      - .env
+  graphql:
+    image: docker-registry.tools.wmflabs.org/toolforge-node10-sssd-web
+    working_dir: /app
+    environment:
+      NPM_CONFIG_CACHE: /app/.npm
+    volumes:
+      - ./:/app:cached
+    command: sh -c "npm ci && npm start"
+    ports:
+      - 3000:3000

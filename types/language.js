@@ -1,4 +1,4 @@
-const { gql } = require( 'apollo-server-hapi' );
+const { gql } = require( 'apollo-server' );
 const { site: siteResolver, sites: sitesResolver } = require( '../resolvers/site' );
 
 const schema = gql`

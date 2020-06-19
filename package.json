@@ -2,7 +2,6 @@
   "name": "@wikimedia/graphql",
   "description": "GraphQL Query Service for Wikimedia",
   "scripts": {
-    "build": "next build",
     "test": "eslint . && jest"
   },
   "repository": {
@@ -12,34 +11,25 @@
   "license": "GPL-2.0-or-later",
   "devDependencies": {
     "babel-core": "^7.0.0-bridge.0",
-    "babel-eslint": "^10.0.1",
-    "babel-jest": "^23.6.0",
+    "babel-eslint": "^10.1.0",
+    "babel-jest": "^26.0.1",
     "eslint": "^5.2.0",
-    "eslint-config-airbnb": "^17.0.0",
+    "eslint-config-airbnb": "^17.1.1",
     "eslint-config-wikimedia": "^0.6.0",
-    "eslint-plugin-import": "^2.13.0",
-    "eslint-plugin-jsx-a11y": "^6.1.1",
-    "eslint-plugin-react": "^7.10.0",
-    "jest": "^23.4.2",
-    "nodemon": "^1.18.4"
+    "eslint-plugin-import": "^2.21.2",
+    "eslint-plugin-jsx-a11y": "^6.2.3",
+    "eslint-plugin-react": "^7.20.0",
+    "jest": "^26.0.1"
   },
   "dependencies": {
-    "@zeit/next-css": "^0.2.0",
     "accept": "^3.0.2",
     "apollo-datasource-rest": "^0.1.5",
-    "apollo-server-core": "^2.0.4",
-    "apollo-server-hapi": "^2.0.4",
+    "apollo-server": "^2.15.0",
+    "apollo-server-core": "^2.14.4",
     "dataloader": "^1.4.0",
-    "graphiql": "^0.11.11",
-    "graphql": "^0.13.2",
-    "hapi": "^17.5.3",
-    "hapi-require-https": "^3.0.0",
-    "lodash": "^4.17.11",
-    "next": "^6.1.1",
-    "node-fetch": "^2.2.0",
-    "react": "^16.4.2",
-    "react-dom": "^16.4.2",
-    "save": "^2.3.2"
+    "graphql": "^14.6.0",
+    "lodash": "^4.17.15",
+    "node-fetch": "^2.2.0"
   },
   "jest": {
     "testPathIgnorePatterns": [

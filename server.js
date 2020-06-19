@@ -1,8 +1,5 @@
-const { ApolloServer } = require( 'apollo-server-hapi' );
-const { Server } = require( 'hapi' );
-const requireHttps = require( 'hapi-require-https' );
+const { ApolloServer } = require( 'apollo-server' );
 const Accept = require( 'accept' );
-const next = require( 'next' );
 const Action = require( './sources/action' );
 const Sparql = require( './sources/sparql' );
 const Query = require( './types/query' );
@@ -11,7 +8,8 @@ const Page = require( './types/page' );
 const Language = require( './types/language' );
 const Entity = require( './types/entity' );
 const sitematrix = require( './utils/sitematrix' );
-const { pathWrapper, defaultHandlerWrapper, nextHandlerWrapper } = require( './next-wrapper' );
+
+const PORT = process.env.PORT || 3000;
 
 async function main() {
 	const typeDefs = await Promise.all( [
@@ -32,16 +30,11 @@ async function main() {
 		...await Entity.resolvers
 	};
 
-	const dev = process.env.NODE_ENV !== 'production';
-	const app = next( { dev } );
-
-	await app.prepare();
-
 	const { sites } = await sitematrix;
 
 	// @TODO Add a caching server.
 	// @see https://www.apollographql.com/docs/apollo-server/features/data-sources.html#Using-Memcached-Redis-as-a-cache-storage-backend
-	const apollo = new ApolloServer( {
+	const server = new ApolloServer( {
 		typeDefs,
 		resolvers,
 		dataSources: () => sites.reduce( ( acc, { dbname, url } ) => {
@@ -59,10 +52,12 @@ async function main() {
 				[ dbname ]: new Action( url )
 			};
 		}, {} ),
-		playground: false,
+		playground: {
+			theme: 'light'
+		},
 		introspection: true,
-		context: ( { request } ) => {
-			const languages = Accept.languages( request.headers[ 'accept-language' ] ).reduce( ( tags, tag ) => (
+		context: ( { req } ) => {
+			const languages = Accept.languages( req.headers[ 'accept-language' ] ).reduce( ( tags, tag ) => (
 				[
 					...tags,
 					// Add the non-region tags to the list of tags. Keep the more specific
@@ -80,98 +75,16 @@ async function main() {
 			// add the languages to the context.
 			return {
 				languages,
-				acceptLanguage: request.headers[ 'accept-language' ]
+				acceptLanguage: req.headers[ 'accept-language' ]
 			};
 		}
 	} );
 
-	const server = new Server( {
-		port: 80
+	const { url } = await server.listen( {
+		port: PORT
 	} );
 
-	// Redirect http to https where X-Forwarded-Proto is 'http'.
-	await server.register( {
-		plugin: requireHttps
-	} );
-
-	await apollo.applyMiddleware( {
-		app: server,
-		path: '/',
-		route: {
-			pre: [
-				// If there is no query to execute, and the request is from the browser,
-				// take over the request before throwing an error.
-				async ( request, h ) => {
-					if ( request.method !== 'get' ) {
-						return h.continue;
-					}
-
-					const mediaTypes = Accept.mediaTypes( request.headers.accept );
-					if ( mediaTypes.length === 0 ) {
-						return h.continue;
-					}
-
-					if ( mediaTypes[ 0 ] !== 'text/html' ) {
-						return h.continue;
-					}
-
-					if ( request.query.query ) {
-						return h.continue;
-					}
-
-					const response = await pathWrapper( app, '/' )( request, h );
-
-					return h.response( response ).takeover();
-				}
-			],
-			ext: {
-				// If the request is from the browser, wrap the response in an in-browser
-				// IDE.
-				onPostHandler: {
-					method: async ( request, h ) => {
-						if ( request.method !== 'get' ) {
-							return request.response;
-						}
-
-						const mediaTypes = Accept.mediaTypes( request.headers.accept );
-						if ( mediaTypes.length === 0 ) {
-							return request.response;
-						}
-
-						if ( mediaTypes[ 0 ] !== 'text/html' ) {
-							return request.response;
-						}
-
-						const response = await pathWrapper( app, '/' )( request, h );
-
-						return h.response( response );
-					}
-				}
-			}
-		}
-	} );
-
-	server.route( {
-		method: 'GET',
-		path: '/_next/{p*}', /* next specific routes */
-		handler: nextHandlerWrapper( app )
-	} );
-
-	server.route( {
-		method: 'GET',
-		path: '/{p*}', /* catch all route */
-		handler: defaultHandlerWrapper( app )
-	} );
-
-	await apollo.installSubscriptionHandlers( server.listener );
-
-	try {
-		await server.start();
-		console.log( '> Ready on http://localhost:80' );
-	} catch ( error ) {
-		console.log( 'Error starting server' );
-		console.log( error );
-	}
+	console.log( `Server ready at ${url}` );
 }
 
 main();

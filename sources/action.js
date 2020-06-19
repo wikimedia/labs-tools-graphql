@@ -1,5 +1,5 @@
 const { RESTDataSource } = require( 'apollo-datasource-rest' );
-const { ApolloError } = require( 'apollo-server-hapi' );
+const { ApolloError } = require( 'apollo-server' );
 const DataLoader = require( 'dataloader' );
 const get = require( 'lodash/get' );
 
